@@ -313,19 +313,23 @@ let CheckEscapes cenv allowProtected m syntacticArgs body = (* m is a range suit
         let fvs   = frees.FreeLocals 
         if not allowProtected && frees.UsesMethodLocalConstructs  then
             errorR(Error(FSComp.SR.chkProtectedOrBaseCalled(), m))
-        elif Zset.exists cantBeFree fvs then 
-            let v =  List.find cantBeFree (Zset.elements fvs) 
-            (* byref error before mutable error (byrefs are mutable...). *)
-            if (isByrefLikeTy cenv.g v.Type) then
-                // Inner functions are not guaranteed to compile to method with a predictable arity (number of arguments). 
-                // As such, partial applications involving byref arguments could lead to closures containing byrefs. 
-                // For safety, such functions are assumed to have no known arity, and so can not accept byrefs. 
-                errorR(Error(FSComp.SR.chkByrefUsedInInvalidWay(v.DisplayName), m))
-            elif v.BaseOrThisInfo = BaseVal then
-                errorR(Error(FSComp.SR.chkBaseUsedInInvalidWay(), m))
-            else
-                (* Should be dead code, unless governing tests change *)
-                errorR(InternalError(FSComp.SR.chkVariableUsedInInvalidWay(v.DisplayName), m))
+        else
+            let v = HashSetUtils.find cantBeFree fvs
+            match v with
+                | Some(a) -> 
+                    (* byref error before mutable error (byrefs are mutable...). *)
+                    if (isByrefLikeTy cenv.g a.Type) then
+                        // Inner functions are not guaranteed to compile to method with a predictable arity (number of arguments). 
+                        // As such, partial applications involving byref arguments could lead to closures containing byrefs. 
+                        // For safety, such functions are assumed to have no known arity, and so can not accept byrefs. 
+                        errorR(Error(FSComp.SR.chkByrefUsedInInvalidWay(a.DisplayName), m))
+                    elif a.BaseOrThisInfo = BaseVal then
+                        errorR(Error(FSComp.SR.chkBaseUsedInInvalidWay(), m))
+                    else
+                        (* Should be dead code, unless governing tests change *)
+                        errorR(InternalError(FSComp.SR.chkVariableUsedInInvalidWay(a.DisplayName), m))
+
+                | None -> ()
         Some frees
     else
         None

@@ -4335,14 +4335,14 @@ and TypedAssemblyAfterOptimization = TypedAssemblyAfterOptimization of (TypedImp
 //---------------------------------------------------------------------------
 
 /// Represents a set of free local values.
-and FreeLocals = Zset<Val>
+and FreeLocals = HashSet<Val>
 
 /// Represents a set of free type parameters
-and FreeTypars = Zset<Typar>
+and FreeTypars = HashSet<Typar>
 
 /// Represents a set of 'free' named type definitions. Used to collect the named type definitions referred to 
 /// from a type or expression.
-and FreeTycons = Zset<Tycon>
+and FreeTycons = HashSet<Tycon>
 
 /// Represents a set of 'free' record field definitions. Used to collect the record field definitions referred to 
 /// from an expression.

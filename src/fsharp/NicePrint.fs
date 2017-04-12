@@ -1170,7 +1170,7 @@ module private PrintTastMemberOrVals =
             else 
                 nameL
 
-        let isOverGeneric = List.length (Zset.elements (freeInType CollectTyparsNoCaching tau).FreeTypars) < List.length tps // Bug: 1143 
+        let isOverGeneric = ((freeInType CollectTyparsNoCaching tau).FreeTypars).Count < List.length tps // Bug: 1143 
         let isTyFunction  = v.IsTypeFunction     // Bug: 1143, and innerpoly tests 
         let typarBindingsL = 
             if isTyFunction || isOverGeneric || denv.showTyparBinding then 

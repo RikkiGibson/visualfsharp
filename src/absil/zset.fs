@@ -4,10 +4,60 @@ namespace Microsoft.FSharp.Compiler.AbstractIL.Internal
 
 open Microsoft.FSharp.Compiler.AbstractIL 
 open Microsoft.FSharp.Compiler.AbstractIL.Internal 
-open Microsoft.FSharp.Compiler.AbstractIL.Internal.Library
-open Internal.Utilities
+open System.Linq
 open Internal.Utilities.Collections.Tagged
 open System.Collections.Generic
+
+[<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
+module HashSetUtils =
+
+    let iter (fn: 'a -> unit) (set: HashSet<'a>) =
+        for a in set do fn a
+
+    let inter (setA: HashSet<'a>) (setB: HashSet<'a>): HashSet<'a> =
+        setA.IntersectWith(setB)
+        setA
+
+    let isEmpty (set: HashSet<'a>): bool = set.Count = 0
+
+    let filter (fn: 'a -> bool) (set: HashSet<'a>) =
+        ignore (set.RemoveWhere(new System.Predicate<'a>(fun x -> not (fn x))))
+        set
+
+    let exists (fn: 'a -> bool) (set: HashSet<'a>) : bool = 
+        set.Any(new System.Func<_,_>(fn))
+
+    let contains (item: 'a) (set: HashSet<'a>) : bool =
+        set.Contains(item)
+
+    let memberOf (set: HashSet<'a>) (item: 'a) : bool =
+        set.Contains(item)
+
+    let find (fn: 'a -> bool) (set: HashSet<'a>) : Option<'a> = 
+        if not (set.Any(new System.Func<_,_>(fn))) then
+            None
+        else
+            Some(set.First(new System.Func<_,_>(fn)))
+
+    let union (setA: HashSet<'a>) (setB: HashSet<'a>): HashSet<'a> =
+        setA.UnionWith(setB)
+        setA
+
+    let diff (setA: HashSet<'a>) (setB: seq<'a>): HashSet<'a> =
+        ignore (setA.Except(setB))
+        setA
+
+    let remove (item: 'a) (set: HashSet<'a>) : HashSet<'a> =
+        ignore (set.Remove(item))
+        set
+           
+    let add (item: 'a) (set: HashSet<'a>) : HashSet<'a> =
+        ignore (set.Add(item))
+        set
+
+    let forall (fn: 'a -> bool) (set: HashSet<'a>) : bool = 
+        set.All(new System.Func<_,_>(fn))
+
 
 /// Sets with a specific comparison function
 type internal Zset<'T> = Internal.Utilities.Collections.Tagged.Set<'T>

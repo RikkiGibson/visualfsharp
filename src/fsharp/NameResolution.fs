@@ -1532,8 +1532,8 @@ let CheckAllTyparsInferrable amap m item =
             let freeInArgsAndRetType = 
                 accFreeInTypes CollectTyparsNoCaching (pinfo.GetParamTypes(amap,m)) 
                        (freeInType CollectTyparsNoCaching (pinfo.GetPropertyType(amap,m)))
-            let free = Zset.diff freeInDeclaringType.FreeTypars  freeInArgsAndRetType.FreeTypars
-            free.IsEmpty)
+            let free = HashSetUtils.diff freeInDeclaringType.FreeTypars  freeInArgsAndRetType.FreeTypars
+            HashSetUtils.isEmpty free)
 
     | Item.MethodGroup(_,minfos,_) -> 
         minfos |> List.forall (fun minfo -> 
@@ -1544,8 +1544,8 @@ let CheckAllTyparsInferrable amap m item =
                 List.foldBack (accFreeInTypes CollectTyparsNoCaching) (minfo.GetParamTypes(amap, m, fminst)) 
                    (accFreeInTypes CollectTyparsNoCaching (minfo.GetObjArgTypes(amap, m, fminst)) 
                        (freeInType CollectTyparsNoCaching (minfo.GetFSharpReturnTy(amap, m, fminst))))
-            let free = Zset.diff freeInDeclaringType.FreeTypars  freeInArgsAndRetType.FreeTypars
-            free.IsEmpty)
+            let free = HashSetUtils.diff freeInDeclaringType.FreeTypars  freeInArgsAndRetType.FreeTypars
+            HashSetUtils.isEmpty free)
 
     | Item.CtorGroup _ 
     | Item.FakeInterfaceCtor _ 

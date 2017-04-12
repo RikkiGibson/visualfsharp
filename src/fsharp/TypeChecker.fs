@@ -6,6 +6,7 @@ module internal Microsoft.FSharp.Compiler.TypeChecker
 
 open System
 open System.Collections.Generic
+open System.Linq
 
 open Internal.Utilities
 open Internal.Utilities.Collections
@@ -220,13 +221,13 @@ type UngeneralizableItem(computeFreeTyvars : (unit -> FreeTyvars)) =
     //   (b)  its set of FreeTycons will not change as further constraints are added to the system
     let mutable willNeverHaveFreeTypars = false
     // If WillNeverHaveFreeTypars then we can cache the computation of FreeTycons, since they are invariant.
-    let mutable cachedFreeLocalTycons = emptyFreeTycons
+    let mutable cachedFreeLocalTycons = (new HashSet<Tycon>())
     // If WillNeverHaveFreeTypars then we can cache the computation of FreeTraitSolutions, since they are invariant.
-    let mutable cachedFreeTraitSolutions = emptyFreeLocals
+    let mutable cachedFreeTraitSolutions =  (new HashSet<Val>()) 
 
     member item.GetFreeTyvars() = 
         let fvs = computeFreeTyvars()
-        if fvs.FreeTypars.IsEmpty then 
+        if HashSetUtils.isEmpty fvs.FreeTypars then 
             willNeverHaveFreeTypars <- true 
             cachedFreeLocalTycons <- fvs.FreeTycons
             cachedFreeTraitSolutions <- fvs.FreeTraitSolutions
@@ -351,8 +352,8 @@ let ExitCtorShapeRegion           env = AdjustCtorShapeCounter (fun _ -> 0) env
 //------------------------------------------------------------------------- 
 
 let isEmptyFreeTyvars ftyvs = 
-    Zset.isEmpty ftyvs.FreeTypars &&
-    Zset.isEmpty ftyvs.FreeTycons 
+    HashSetUtils.isEmpty ftyvs.FreeTypars &&
+    HashSetUtils.isEmpty ftyvs.FreeTycons 
 
 let addFreeItemOfTy typ eUngeneralizableItems = 
     let fvs = freeInType CollectAllNoCaching typ
@@ -362,7 +363,7 @@ let addFreeItemOfTy typ eUngeneralizableItems =
 let rec addFreeInModuleTy (mtyp:ModuleOrNamespaceType) acc =
     QueueList.foldBack (typeOfVal >> accFreeInType CollectAllNoCaching) mtyp.AllValsAndMembers
       (QueueList.foldBack (fun (mspec:ModuleOrNamespace) acc -> addFreeInModuleTy mspec.ModuleOrNamespaceType acc) mtyp.AllEntities acc)
-let freeInModuleTy mtyp = addFreeInModuleTy mtyp emptyFreeTyvars
+let freeInModuleTy mtyp = addFreeInModuleTy mtyp (emptyFreeTyvars())
 
 let addFreeItemOfModuleTy mtyp eUngeneralizableItems = 
     let fvs = freeInModuleTy mtyp
@@ -2116,11 +2117,11 @@ module GeneralizationHelpers =
         for item in env.eUngeneralizableItems do
             if not item.WillNeverHaveFreeTypars then
                 let ftps = item.GetFreeTyvars().FreeTypars
-                if not ftps.IsEmpty then
+                if not (HashSetUtils.isEmpty ftps) then
                     for ftp in ftps do
                         acc.Add(ftp)
             
-        Zset.Create(typarOrder, acc)
+        new HashSet<_>(acc, typarEquality)
 
 
     let ComputeUnabstractableTycons env = 
@@ -2129,9 +2130,9 @@ module GeneralizationHelpers =
                 if item.WillNeverHaveFreeTypars then item.CachedFreeLocalTycons else 
                 let ftyvs = item.GetFreeTyvars()
                 ftyvs.FreeTycons
-            if ftycs.IsEmpty then acc else unionFreeTycons ftycs acc
+            if HashSetUtils.isEmpty ftycs then acc else unionFreeTycons ftycs acc
 
-        List.fold acc_in_free_item emptyFreeTycons env.eUngeneralizableItems 
+        List.fold acc_in_free_item (new HashSet<Tycon>()) env.eUngeneralizableItems 
 
     let ComputeUnabstractableTraitSolutions env = 
         let acc_in_free_item acc (item: UngeneralizableItem) = 
@@ -2139,9 +2140,9 @@ module GeneralizationHelpers =
                 if item.WillNeverHaveFreeTypars then item.CachedFreeTraitSolutions else 
                 let ftyvs = item.GetFreeTyvars()
                 ftyvs.FreeTraitSolutions
-            if ftycs.IsEmpty then acc else unionFreeLocals ftycs acc
+            if HashSetUtils.isEmpty ftycs then acc else unionFreeLocals ftycs acc
 
-        List.fold acc_in_free_item emptyFreeLocals env.eUngeneralizableItems 
+        List.fold acc_in_free_item  (new HashSet<Val>())  env.eUngeneralizableItems 
 
     let rec IsGeneralizableValue g t = 
         match t with 
@@ -2203,7 +2204,7 @@ module GeneralizationHelpers =
         // Do not generalize type variables which would escape their scope 
         // because they are free in the environment 
         let generalizedTypars,ungeneralizableTypars2 = 
-            List.partition (fun x -> not (Zset.contains x freeInEnv)) generalizedTypars
+            List.partition (fun x -> not (HashSetUtils.contains x freeInEnv)) generalizedTypars
 
         // Some situations, e.g. implicit class constructions that represent functions as fields, 
         // do not allow generalisation over constrained typars. (since they can not be represented as fields)
@@ -2220,7 +2221,7 @@ module GeneralizationHelpers =
                 unionFreeTypars 
                     (accFreeInTypars CollectAllNoCaching ungeneralizableTypars1 
                         (accFreeInTypars CollectAllNoCaching ungeneralizableTypars2 
-                            (accFreeInTypars CollectAllNoCaching ungeneralizableTypars3 emptyFreeTyvars))).FreeTypars 
+                            (accFreeInTypars CollectAllNoCaching ungeneralizableTypars3 (emptyFreeTyvars())))).FreeTypars 
                     freeInEnv
             TrimUngeneralizableTypars genConstrainedTyparFlag inlineFlag generalizedTypars freeInEnv
 
@@ -2311,7 +2312,7 @@ module GeneralizationHelpers =
 
         allDeclaredTypars 
         |> List.iter (fun tp -> 
-            if Zset.memberOf freeInEnv tp then
+            if HashSetUtils.memberOf freeInEnv tp then
                 let ty = mkTyparTy tp
                 error(Error(FSComp.SR.tcNotSufficientlyGenericBecauseOfScope(NicePrint.prettyStringOfTy denv ty),m)))
             
@@ -10684,7 +10685,7 @@ and ApplyTypesFromArgumentPatterns (cenv, env, optArgsOK, ty, m, tpenv, Normaliz
 
 /// Do the type annotations give the full and complete generic type? If so, enable generic recursion 
 and ComputeIsComplete enclosingDeclaredTypars declaredTypars ty = 
-    Zset.isEmpty (List.fold (fun acc v -> Zset.remove v acc) 
+    HashSetUtils.isEmpty (List.fold (fun acc v -> HashSetUtils.remove v acc) 
                                   (freeInType CollectAllNoCaching ty).FreeTypars 
                                   (enclosingDeclaredTypars@declaredTypars)) 
 
@@ -11254,7 +11255,7 @@ and TcIncrementalLetRecGeneralization cenv scopem
         // The forward uses table will always be smaller than the number of potential forward bindings except in extremely
         // pathological situations
         let freeInUncheckedRecBinds = 
-            lazy ((emptyFreeTyvars, cenv.recUses.Contents) ||> Map.fold (fun acc vStamp _ -> 
+            lazy ((emptyFreeTyvars(), cenv.recUses.Contents) ||> Map.fold (fun acc vStamp _ -> 
                        if uncheckedRecBindsTable.ContainsKey vStamp then 
                            let fwdBind = uncheckedRecBindsTable.[vStamp]  
                            accFreeInType CollectAllNoCaching  fwdBind.RecBindingInfo.Val.Type acc
@@ -11287,35 +11288,35 @@ and TcIncrementalLetRecGeneralization cenv scopem
                     let freeInBinding = (freeInType CollectAllNoCaching pgrbind.RecBindingInfo.Val.TauType).FreeTypars
                     
                     // Is the binding free of type inference variables? If so, it can be generalized immediately
-                    if freeInBinding.IsEmpty then true else
+                    if HashSetUtils.isEmpty freeInBinding then true else
 
                     //printfn "(failed generalization test 1 for binding for %s)" pgrbind.RecBindingInfo.Val.DisplayName
                     // Any declared type parameters in an type are always generalizable
-                    let freeInBinding = Zset.diff  freeInBinding (Zset.ofList typarOrder (NormalizeDeclaredTyparsForEquiRecursiveInference cenv.g pgrbind.ExtraGeneralizableTypars))
+                    let freeInBinding = HashSetUtils.diff  freeInBinding (new HashSet<_>((NormalizeDeclaredTyparsForEquiRecursiveInference cenv.g pgrbind.ExtraGeneralizableTypars), typarEquality))
 
-                    if freeInBinding.IsEmpty then true else
+                    if freeInBinding.Count = 0 then true else
 
                     //printfn "(failed generalization test 2 for binding for %s)" pgrbind.RecBindingInfo.Val.DisplayName
 
                     // Any declared method parameters can always be generalized
-                    let freeInBinding = Zset.diff  freeInBinding (Zset.ofList typarOrder (NormalizeDeclaredTyparsForEquiRecursiveInference cenv.g pgrbind.RecBindingInfo.DeclaredTypars))
+                    let freeInBinding = HashSetUtils.diff  freeInBinding (new HashSet<_>((NormalizeDeclaredTyparsForEquiRecursiveInference cenv.g pgrbind.RecBindingInfo.DeclaredTypars), typarEquality))
 
-                    if freeInBinding.IsEmpty then true else
+                    if freeInBinding.Count = 0 then true else
 
                     //printfn "(failed generalization test 3 for binding for %s)" pgrbind.RecBindingInfo.Val.DisplayName
 
                     // Type variables free in the non-recursive environment do not stop us generalizing the binding,
                     // since they can't be generalized anyway
-                    let freeInBinding = Zset.diff  freeInBinding freeInEnv
+                    let freeInBinding = HashSetUtils.diff  freeInBinding freeInEnv
 
-                    if freeInBinding.IsEmpty then true else
+                    if freeInBinding.Count = 0 then true else
 
                     //printfn "(failed generalization test 4 for binding for %s)" pgrbind.RecBindingInfo.Val.DisplayName
 
                     // Type variables free in unchecked bindings do stop us generalizing
-                    let freeInBinding = Zset.inter (freeInFrozenAndLaterBindings.Force().FreeTypars) freeInBinding
+                    let freeInBinding = HashSetUtils.inter freeInBinding (freeInFrozenAndLaterBindings.Force().FreeTypars)
 
-                    if freeInBinding.IsEmpty then true else
+                    if HashSetUtils.isEmpty freeInBinding then true else
 
                     //printfn "(failed generalization test 5 for binding for %s)" pgrbind.RecBindingInfo.Val.DisplayName
                     
@@ -11354,9 +11355,9 @@ and TcIncrementalLetRecGeneralization cenv scopem
                     freeInEnv 
                 else 
                     let freeInBinding = (freeInType CollectAllNoCaching pgrbind.RecBindingInfo.Val.TauType).FreeTypars
-                    let freeInBinding = Zset.diff  freeInBinding (Zset.ofList typarOrder (NormalizeDeclaredTyparsForEquiRecursiveInference cenv.g pgrbind.ExtraGeneralizableTypars))
-                    let freeInBinding = Zset.diff  freeInBinding (Zset.ofList typarOrder (NormalizeDeclaredTyparsForEquiRecursiveInference cenv.g pgrbind.RecBindingInfo.DeclaredTypars))
-                    Zset.union freeInBinding freeInEnv)
+                    let freeInBinding = HashSetUtils.diff  freeInBinding (NormalizeDeclaredTyparsForEquiRecursiveInference cenv.g pgrbind.ExtraGeneralizableTypars)
+                    let freeInBinding = HashSetUtils.diff  freeInBinding (NormalizeDeclaredTyparsForEquiRecursiveInference cenv.g pgrbind.RecBindingInfo.DeclaredTypars)
+                    HashSetUtils.union freeInBinding freeInEnv)
 
         // Process the bindings marked for transition from PreGeneralization --> PostGeneralization
         let newGeneralizedRecBinds,tpenv = 
@@ -11389,7 +11390,7 @@ and TcIncrementalLetRecGeneralization cenv scopem
 /// Compute the type variables which may be generalized and perform the generalization 
 and TcLetrecComputeAndGeneralizeGenericTyparsForBinding cenv denv freeInEnv (pgrbind : PreGeneralizationRecursiveBinding)  =
 
-    let freeInEnv = Zset.diff freeInEnv (Zset.ofList typarOrder (NormalizeDeclaredTyparsForEquiRecursiveInference cenv.g pgrbind.ExtraGeneralizableTypars))
+    let freeInEnv = HashSetUtils.diff freeInEnv (new HashSet<_>((NormalizeDeclaredTyparsForEquiRecursiveInference cenv.g pgrbind.ExtraGeneralizableTypars), typarEquality))
 
     let rbinfo = pgrbind.RecBindingInfo
     let vspec = rbinfo.Val
@@ -11656,7 +11657,7 @@ let TcAndPublishValSpec (cenv, env, containerInfo: ContainerInfo, declKind, memF
 
             let flex = ExplicitTyparInfo(declaredTypars,declaredTypars,synCanInferTypars)
             
-            let generalizedTypars = GeneralizationHelpers.ComputeAndGeneralizeGenericTypars(cenv,denv,id.idRange,emptyFreeTypars,canInferTypars,CanGeneralizeConstrainedTypars,inlineFlag,None,allDeclaredTypars,freeInType,ty,false)
+            let generalizedTypars = GeneralizationHelpers.ComputeAndGeneralizeGenericTypars(cenv,denv,id.idRange,(new HashSet<_>()),canInferTypars,CanGeneralizeConstrainedTypars,inlineFlag,None,allDeclaredTypars,freeInType,ty,false)
             
             let valscheme1 = PrelimValScheme1(id,flex,ty,Some(partialValReprInfo),memberInfoOpt,mutableFlag,inlineFlag,NormalVal,noArgOrRetAttribs,vis,false)
 
@@ -13524,7 +13525,7 @@ module MutRecBindingChecking =
         if not (isNil allExtraGeneralizableTypars) then         
             let freeInInitialEnv = GeneralizationHelpers.ComputeUngeneralizableTypars envInitial
             for extraTypar in allExtraGeneralizableTypars do 
-                if Zset.memberOf freeInInitialEnv extraTypar then
+                if HashSetUtils.memberOf freeInInitialEnv extraTypar then
                     let ty =  mkTyparTy extraTypar
                     error(Error(FSComp.SR.tcNotSufficientlyGenericBecauseOfScope(NicePrint.prettyStringOfTy denv ty),extraTypar.Range))                                
 
@@ -13558,7 +13559,7 @@ module MutRecBindingChecking =
                      // Check it is not one of the generalized variables...
                      not (genSet.Contains tp) && 
                      // Check it involves a generalized variable in one of its constraints...
-                     freeInTypar.Exists(fun otherTypar -> genSet.Contains otherTypar))
+                     HashSetUtils.exists (fun otherTypar -> genSet.Contains otherTypar) freeInTypar)
              //printfn "unsolvedTyparsInvolvingGeneralizedVariables.Length = %d" unsolvedTyparsInvolvingGeneralizedVariables.Length
              //for x in unsolvedTypars do 
              //    printfn "unsolvedTyparsInvolvingGeneralizedVariable : %s #%d" x.DisplayName x.Stamp
@@ -16313,7 +16314,7 @@ let ElimModuleDoBinding bind =
 let TcMutRecDefnsEscapeCheck (binds: MutRecShapes<_,_,_,_,_>) env = 
     let freeInEnv = GeneralizationHelpers.ComputeUnabstractableTycons env
     let checkTycon (tycon: Tycon) = 
-        if not tycon.IsTypeAbbrev && Zset.contains tycon freeInEnv then 
+        if not tycon.IsTypeAbbrev && HashSetUtils.contains tycon freeInEnv then 
             let nm = tycon.DisplayName
             errorR(Error(FSComp.SR.tcTypeUsedInInvalidWay(nm, nm, nm), tycon.Range))
 
@@ -16322,7 +16323,7 @@ let TcMutRecDefnsEscapeCheck (binds: MutRecShapes<_,_,_,_,_>) env =
     let freeInEnv = GeneralizationHelpers.ComputeUnabstractableTraitSolutions env
     let checkBinds (binds: Binding list) = 
         for bind in binds do 
-            if Zset.contains bind.Var freeInEnv then 
+            if HashSetUtils.contains bind.Var freeInEnv then 
                 let nm = bind.Var.DisplayName 
                 errorR(Error(FSComp.SR.tcMemberUsedInInvalidWay(nm, nm, nm), bind.Var.Range))
 
@@ -16776,18 +16777,18 @@ let CheckValueRestriction denvAtEnd rootSigOpt implFileTypePriorToSig m =
     if Option.isNone rootSigOpt then
       let rec check (mty:ModuleOrNamespaceType) =
           for v in mty.AllValsAndMembers do
-              let ftyvs = (freeInVal CollectTyparsNoCaching v).FreeTypars |> Zset.elements
+              let ftyvs = (freeInVal CollectTyparsNoCaching v).FreeTypars
               if (not v.IsCompilerGenerated && 
-                  not (ftyvs |> List.exists (fun tp -> tp.IsFromError)) && 
+                  not (ftyvs |> HashSetUtils.exists (fun tp -> tp.IsFromError)) && 
                   // Do not apply the value restriction to methods and functions
                   // Note, normally these completely generalize their argument types anyway. However,
                   // some methods (property getters/setters, constructors) can't be as generic
                   // as they might naturally be, and these can leave type variables unsolved. See
                   // for example FSharp 1.0 3661.
                   (match v.ValReprInfo with None -> true | Some tvi -> tvi.HasNoArgs)) then 
-                match ftyvs with 
-                | tp :: _ -> errorR (ValueRestriction(denvAtEnd,false,v, tp,v.Range))
-                | _ -> ()
+                if ftyvs.Count <> 0 then
+                    let tp = ftyvs.First()
+                    errorR (ValueRestriction(denvAtEnd,false,v, tp,v.Range))
           mty.ModuleAndNamespaceDefinitions |> List.iter (fun v -> check v.ModuleOrNamespaceType) 
       try check implFileTypePriorToSig with e -> errorRecovery e m
 

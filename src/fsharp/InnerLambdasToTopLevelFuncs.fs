@@ -2,7 +2,7 @@
 
 module internal Microsoft.FSharp.Compiler.InnerLambdasToTopLevelFuncs 
 
-open Internal.Utilities
+open System.Linq
 open Microsoft.FSharp.Compiler.AbstractIL 
 open Microsoft.FSharp.Compiler.AbstractIL.Internal 
 open Microsoft.FSharp.Compiler.AbstractIL.Internal.Library 
@@ -18,6 +18,7 @@ open Microsoft.FSharp.Compiler.TcGlobals
 open Microsoft.FSharp.Compiler.Layout
 open Microsoft.FSharp.Compiler.Detuple.GlobalUsageAnalysis
 open Microsoft.FSharp.Compiler.Lib
+open System.Collections.Generic
 
 
 let verboseTLR = false
@@ -369,7 +370,7 @@ type ReqdItemsForDefn =
 // pass2: collector - state
 //-------------------------------------------------------------------------
 
-type Generators = Zset<Val>
+type Generators = HashSet<Val>
 
 /// check a named function value applied to sufficient arguments 
 let IsArityMet (vref:ValRef)  wf (tys: TypeInst) args = 
@@ -466,7 +467,7 @@ module Pass2_DetermineReqdItems =
 
     /// Log requirements for gv in the relevant stack frames 
     let LogRequiredFrom gv items state =
-        let logIntoFrame (fclass, reqdVals0:Zset<Val>, env: ReqdItemsForDefn) =
+        let logIntoFrame (fclass, reqdVals0:HashSet<Val>, env: ReqdItemsForDefn) =
            let env = 
                if reqdVals0.Contains gv then
                    env.Extend ([],items) 
@@ -521,12 +522,11 @@ module Pass2_DetermineReqdItems =
              let fclass = BindingGroupSharingSameReqdItems tlrBs
              // what determines env? 
              let frees        = FreeInBindings tlrBs
-             let reqdTypars0  = frees.FreeTyvars.FreeTypars   |> Zset.elements      (* put in env *)
+             let reqdTypars0  = List.ofSeq frees.FreeTyvars.FreeTypars     (* put in env *)
              // occurrences contribute to env 
-             let reqdVals0 = frees.FreeLocals |> Zset.elements
              // tlrBs are not reqdVals0 for themselves 
-             let reqdVals0 = reqdVals0 |> List.filter (fun gv -> not (fclass.Contains gv)) 
-             let reqdVals0 = reqdVals0 |> Zset.ofList valOrder 
+             let reqdVals0 = frees.FreeLocals
+             let reqdVals0 = HashSetUtils.filter (fun gv -> not (fclass.Contains gv)) reqdVals0
              // collect into env over bodies 
              let z          = PushFrame fclass (reqdTypars0,reqdVals0,m) z
              let z          = (z,tlrBs) ||> List.fold (foldOn (fun b -> b.Expr) exprF) 

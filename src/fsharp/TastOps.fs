@@ -1703,11 +1703,7 @@ let ValRefIsExplicitImpl g (vref:ValRef) = ValIsExplicitImpl g vref.Deref
 // an equation assigned by type inference.
 //---------------------------------------------------------------------------
 
-let emptyFreeLocals = Zset.empty valOrder
-let unionFreeLocals s1 s2 = 
-    if s1 === emptyFreeLocals then s2
-    elif s2 === emptyFreeLocals then s1
-    else Zset.union s1 s2
+let unionFreeLocals (s1: FreeLocals) (s2: FreeLocals) = HashSetUtils.union s1 s2
 
 let emptyFreeRecdFields = Zset.empty recdFieldRefOrder
 let unionFreeRecdFields s1 s2 = 
@@ -1717,38 +1713,33 @@ let unionFreeRecdFields s1 s2 =
 
 let emptyFreeUnionCases = Zset.empty unionCaseRefOrder
 let unionFreeUnionCases s1 s2 = 
-    if s1 === emptyFreeUnionCases then s2
-    elif s2 === emptyFreeUnionCases then s1
-    else Zset.union s1 s2
+    Zset.union s1 s2
 
-let emptyFreeTycons = Zset.empty tyconOrder
-let unionFreeTycons s1 s2 = 
-    if s1 === emptyFreeTycons then s2
-    elif s2 === emptyFreeTycons then s1
-    else Zset.union s1 s2
+let unionFreeTycons (s1: FreeTycons) (s2: FreeTycons) = 
+    HashSetUtils.union s1 s2
 
-let typarOrder = 
+let typarOrder =
     { new System.Collections.Generic.IComparer<Typar> with 
         member x.Compare (v1:Typar, v2:Typar) = compare v1.Stamp v2.Stamp } 
 
-let emptyFreeTypars = Zset.empty typarOrder
-let unionFreeTypars s1 s2 = 
-    if s1 === emptyFreeTypars then s2
-    elif s2 === emptyFreeTypars then s1
-    else Zset.union s1 s2
+let typarEquality = 
+    { new System.Collections.Generic.IEqualityComparer<Typar> with 
+       member x.Equals (v1:Typar, v2:Typar) = v1.Stamp = v2.Stamp
+        member x.GetHashCode (v1) = v1.Stamp.GetHashCode()} 
 
-let emptyFreeTyvars =  
-    { FreeTycons = emptyFreeTycons
-      /// The summary of values used as trait solutions
-      FreeTraitSolutions = emptyFreeLocals
-      FreeTypars = emptyFreeTypars}
+let unionFreeTypars (s1 : FreeTypars) (s2 : FreeTypars) = 
+    s1.UnionWith(s2)
+    s1
 
-let unionFreeTyvars fvs1 fvs2 = 
-    if fvs1 === emptyFreeTyvars then fvs2 else 
-    if fvs2 === emptyFreeTyvars then fvs1 else
-    { FreeTycons           = unionFreeTycons fvs1.FreeTycons fvs2.FreeTycons
-      FreeTraitSolutions   = unionFreeLocals fvs1.FreeTraitSolutions fvs2.FreeTraitSolutions
-      FreeTypars           = unionFreeTypars fvs1.FreeTypars fvs2.FreeTypars }
+let emptyFreeTyvars (): FreeTyvars = 
+    { FreeTycons           = new HashSet<_>()
+      FreeTraitSolutions   = new HashSet<_>()
+      FreeTypars           = new HashSet<_>() }
+
+let unionFreeTyvars fvs1 fvs2 =
+    { FreeTycons           = HashSetUtils.union fvs1.FreeTycons fvs2.FreeTycons
+      FreeTraitSolutions   = HashSetUtils.union fvs1.FreeTraitSolutions fvs2.FreeTraitSolutions
+      FreeTypars           = HashSetUtils.union fvs1.FreeTypars fvs2.FreeTypars }
 
 type FreeVarOptions = 
     { canCache: bool
@@ -1828,8 +1819,8 @@ let CollectLocals = CollectTyparsAndLocals
 
 let accFreeLocalTycon opts x acc = 
     if not opts.includeLocalTycons then acc else
-    if Zset.contains x acc.FreeTycons then acc else 
-    { acc with FreeTycons = Zset.add x acc.FreeTycons } 
+    if HashSetUtils.contains x acc.FreeTycons then acc else 
+    { acc with FreeTycons = acc.FreeTycons } 
 
 let accFreeTycon opts (tcr:TyconRef) acc = 
     if not opts.includeLocalTycons then acc
@@ -1840,7 +1831,7 @@ let rec boundTypars opts tps acc =
     // Bound type vars form a recursively-referential set due to constraints, e.g.  A : I<B>, B : I<A> 
     // So collect up free vars in all constraints first, then bind all variables 
     let acc = List.foldBack (fun (tp:Typar) acc -> accFreeInTyparConstraints opts tp.Constraints acc) tps acc
-    List.foldBack (fun tp acc -> { acc with FreeTypars = Zset.remove tp acc.FreeTypars}) tps acc
+    List.foldBack (fun tp acc -> { acc with FreeTypars = HashSetUtils.remove tp acc.FreeTypars}) tps acc
 
 and accFreeInTyparConstraints opts cxs acc =
     List.foldBack (accFreeInTyparConstraint opts) cxs acc
@@ -1882,8 +1873,8 @@ and accFreeInTraitSln opts sln acc =
     | ClosedExprSln _ -> acc // nothing to accumulate because it's a closed expression referring only to erasure of provided method calls
 
 and accFreeLocalValInTraitSln _opts v fvs =
-    if Zset.contains v fvs.FreeTraitSolutions then fvs 
-    else { fvs with FreeTraitSolutions = Zset.add v fvs.FreeTraitSolutions}
+    if HashSetUtils.contains v fvs.FreeTraitSolutions then fvs 
+    else { fvs with FreeTraitSolutions = HashSetUtils.add v fvs.FreeTraitSolutions}
 
 and accFreeValRefInTraitSln opts (vref:ValRef) fvs = 
     if vref.IsLocalRef then
@@ -1894,10 +1885,10 @@ and accFreeValRefInTraitSln opts (vref:ValRef) fvs =
 
 and accFreeTyparRef opts (tp:Typar) acc = 
     if not opts.includeTypars then acc else
-    if Zset.contains tp acc.FreeTypars then acc 
+    if HashSetUtils.contains tp acc.FreeTypars then acc 
     else 
         accFreeInTyparConstraints opts tp.Constraints
-          { acc with FreeTypars = Zset.add tp acc.FreeTypars}
+          { acc with FreeTypars = HashSetUtils.add tp acc.FreeTypars}
 
 and accFreeInType opts ty acc  = 
     match stripTyparEqns ty with 
@@ -1922,13 +1913,13 @@ and accFreeInTypes opts tys acc =
     match tys with 
     | [] -> acc
     | h :: t -> accFreeInTypes opts t (accFreeInType opts h acc)
-and freeInType opts ty = accFreeInType opts ty emptyFreeTyvars
+and freeInType opts ty = accFreeInType opts ty (emptyFreeTyvars())
 
 and accFreeInVal opts (v:Val) acc = accFreeInType opts v.val_type acc
 
-let freeInTypes opts tys = accFreeInTypes opts tys emptyFreeTyvars
-let freeInVal opts v = accFreeInVal opts v emptyFreeTyvars
-let freeInTyparConstraints opts v = accFreeInTyparConstraints opts v emptyFreeTyvars
+let freeInTypes opts tys = accFreeInTypes opts tys (emptyFreeTyvars())
+let freeInVal opts v = accFreeInVal opts v (emptyFreeTyvars())
+let freeInTyparConstraints opts v = accFreeInTyparConstraints opts v (emptyFreeTyvars())
 let accFreeInTypars opts tps acc = List.foldBack (accFreeTyparRef opts) tps acc
         
 
@@ -2359,7 +2350,7 @@ module SimplifyTypes =
         // However, they may also occur in a type constraint.
         // If they do, they are really multiple occurance - so we should remove them.
         let constraintTypars = (freeInTyparConstraints CollectTyparsNoCaching (List.map snd cxs)).FreeTypars
-        let usedInTypeConstraint typar = Zset.contains typar constraintTypars
+        let usedInTypeConstraint typar = HashSetUtils.contains typar constraintTypars
         let singletons = singletons |> Zset.filter (usedInTypeConstraint >> not) 
         // Here, singletons should really be used once 
         let inplace,postfix =
@@ -3886,13 +3877,13 @@ let freeVarsAllPublic fvs =
     //
     // CODEREVIEW:
     // What about non-local vals. This fix assumes non-local vals must be public. OK?
-    Zset.forall isPublicVal fvs.FreeLocals  &&
+    HashSetUtils.forall isPublicVal fvs.FreeLocals  &&
     Zset.forall isPublicUnionCase fvs.FreeUnionCases &&
     Zset.forall isPublicRecdField fvs.FreeRecdFields  &&
-    Zset.forall isPublicTycon fvs.FreeTyvars.FreeTycons
+    HashSetUtils.forall isPublicTycon fvs.FreeTyvars.FreeTycons
 
 let freeTyvarsAllPublic tyvars = 
-    Zset.forall isPublicTycon tyvars.FreeTycons
+    HashSetUtils.forall isPublicTycon tyvars.FreeTycons
 
 
 // Detect the subset of match expressions we treat in a linear way
@@ -3915,9 +3906,9 @@ let rebuildLinearMatchExpr (sp,m,dtree,tg1,e2,sp2,m2,ty) =
 let emptyFreeVars =  
   { UsesMethodLocalConstructs=false;
     UsesUnboundRethrow=false;
-    FreeLocalTyconReprs=emptyFreeTycons; 
-    FreeLocals=emptyFreeLocals; 
-    FreeTyvars=emptyFreeTyvars;
+    FreeLocalTyconReprs=(new HashSet<_>()); 
+    FreeLocals= (new HashSet<Val>()) ; 
+    FreeTyvars=emptyFreeTyvars();
     FreeRecdFields = emptyFreeRecdFields;
     FreeUnionCases = emptyFreeUnionCases}
 
@@ -4019,8 +4010,8 @@ let accFreeVarsInTraitSln opts tys acc = accFreeTyvars opts accFreeInTraitSln ty
 let boundLocalVal opts v fvs =
     if not opts.includeLocals then fvs else
     let fvs = accFreevarsInVal opts v fvs
-    if not (Zset.contains v fvs.FreeLocals) then fvs
-    else {fvs with FreeLocals= Zset.remove v fvs.FreeLocals} 
+    if not (HashSetUtils.contains v fvs.FreeLocals) then fvs
+    else {fvs with FreeLocals= HashSetUtils.remove v fvs.FreeLocals} 
 
 let boundProtect fvs =
     if fvs.UsesMethodLocalConstructs then {fvs with UsesMethodLocalConstructs = false} else fvs
@@ -4083,15 +4074,15 @@ and accFreeInValFlags opts flag acc =
 
 and accFreeLocalVal opts v fvs =
     if not opts.includeLocals then fvs else
-    if Zset.contains v fvs.FreeLocals then fvs 
+    if HashSetUtils.contains v fvs.FreeLocals then fvs 
     else 
         let fvs = accFreevarsInVal opts v fvs
-        {fvs with FreeLocals=Zset.add v fvs.FreeLocals}
+        {fvs with FreeLocals=HashSetUtils.add v fvs.FreeLocals}
   
 and accLocalTyconRepr opts b fvs = 
     if not opts.includeLocalTyconReprs then fvs else
-    if Zset.contains b fvs.FreeLocalTyconReprs  then fvs
-    else { fvs with FreeLocalTyconReprs = Zset.add b fvs.FreeLocalTyconReprs } 
+    if HashSetUtils.contains b fvs.FreeLocalTyconReprs  then fvs
+    else { fvs with FreeLocalTyconReprs = HashSetUtils.add b fvs.FreeLocalTyconReprs } 
 
 and accUsedRecdOrUnionTyconRepr opts (tc:Tycon) fvs = 
     if match tc.TypeReprInfo with  TFSharpObjectRepr _ | TRecdRepr _ | TUnionRepr _ -> true | _ -> false
@@ -7376,14 +7367,14 @@ type PrettyNaming.ActivePatternInfo with
 // not by their argument types.
 let doesActivePatternHaveFreeTypars g (v:ValRef) =
     let vty  = v.TauType
-    let vtps = v.Typars |> Zset.ofList typarOrder
+    let vtps = new HashSet<_>(v.Typars, typarEquality)
     if not (isFunTy g v.TauType) then
         errorR(Error(FSComp.SR.activePatternIdentIsNotFunctionTyped(v.LogicalName),v.Range))
     let argtys,resty  = stripFunTy g vty
     let argtps,restps= (freeInTypes CollectTypars argtys).FreeTypars,(freeInType CollectTypars resty).FreeTypars        
     // Error if an active pattern is generic in type variables that only occur in the result Choice<_,...>.
     // Note: The test restricts to v.Typars since typars from the closure are considered fixed.
-    not (Zset.isEmpty (Zset.inter (Zset.diff restps argtps) vtps)) 
+    not (HashSetUtils.isEmpty (HashSetUtils.inter (HashSetUtils.diff (new HashSet<_>(restps)) argtps) vtps))
 
 //---------------------------------------------------------------------------
 // RewriteExpr: rewrite bottom up with interceptors 
@@ -7983,8 +7974,8 @@ let (|CompiledForEachExpr|_|) g expr =
                       enumerableVar.IsCompilerGenerated &&
                       enumeratorVar.IsCompilerGenerated &&
                       (let fvs = (freeInExpr CollectLocals bodyExpr)
-                       not (Zset.contains enumerableVar fvs.FreeLocals) && 
-                       not (Zset.contains enumeratorVar fvs.FreeLocals)) ->
+                       not (HashSetUtils.contains enumerableVar fvs.FreeLocals) && 
+                       not (HashSetUtils.contains enumeratorVar fvs.FreeLocals)) ->
 
         // Extract useful ranges
         let mEnumExpr = enumerableExpr.Range

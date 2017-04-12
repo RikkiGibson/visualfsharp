@@ -7,6 +7,23 @@ open Microsoft.FSharp.Compiler.AbstractIL
 open Microsoft.FSharp.Compiler.AbstractIL.Internal.Library 
 open System.Collections.Generic
 
+[<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
+module HashSetUtils =
+
+    val iter : ('a -> unit) -> HashSet<'a> -> unit
+    val inter : HashSet<'a> -> HashSet<'a> -> HashSet<'a>
+    val isEmpty : HashSet<'a> -> bool
+    val filter : ('a -> bool) -> HashSet<'a> -> HashSet<'a>
+    val exists : ('a -> bool) -> HashSet<'a> -> bool
+    val memberOf : HashSet<'a> -> 'a -> bool
+    val contains :'a -> HashSet<'a> -> bool
+    val find : ('a -> bool) -> HashSet<'a> -> Option<'a>
+    val union: HashSet<'a> -> HashSet<'a> -> HashSet<'a>
+    val diff: HashSet<'a> -> seq<'a> -> HashSet<'a>
+    val remove    : 'T -> HashSet<'T> -> HashSet<'T>
+    val add     : 'T -> HashSet<'T> -> HashSet<'T>
+    val forall : ('a -> bool) -> HashSet<'a> -> bool
+
 /// Sets with a specific comparison function
 type internal Zset<'T> = Internal.Utilities.Collections.Tagged.Set<'T>
 

@@ -397,7 +397,7 @@ and GenNamedTyAppAux (amap:ImportMap) m tyenv ptrsOK tcref tinst =
     let g = amap.g
     let tinst = DropErasedTyargs tinst 
     // See above note on ptrsOK 
-    if ptrsOK = PtrTypesOK && tyconRefEq g tcref g.nativeptr_tcr && (freeInTypes CollectTypars tinst).FreeTypars.IsEmpty then 
+    if ptrsOK = PtrTypesOK && tyconRefEq g tcref g.nativeptr_tcr && HashSetUtils.isEmpty (freeInTypes CollectTypars tinst).FreeTypars then 
         GenNamedTyAppAux amap m tyenv ptrsOK g.ilsigptr_tcr tinst
     else
 #if EXTENSIONTYPING
@@ -3826,8 +3826,7 @@ and GetIlxClosureFreeVars cenv m selfv eenvouter takenNames expr =
     // Also filter out the current value being bound, if any, as it is available from the "this" 
     // pointer which gives the current closure itself. This is in the case e.g. let rec f = ... f ... 
     let cloFreeVars = 
-        cloFreeVarResults.FreeLocals
-        |> Zset.elements 
+        List.ofSeq(cloFreeVarResults.FreeLocals)
         |> List.filter (fun fv -> 
             match StorageForVal m fv eenvouter with 
             | (StaticField _ | StaticProperty _ | Method _ | Null) -> false
@@ -3848,8 +3847,8 @@ and GetIlxClosureFreeVars cenv m selfv eenvouter takenNames expr =
     //  -- "internal" ones, which get used internally in the implementation
     let cloContractFreeTyvarSet = (freeInType CollectTypars (tyOfExpr cenv.g expr)).FreeTypars 
     
-    let cloInternalFreeTyvars = Zset.diff  cloFreeVarResults.FreeTyvars.FreeTypars cloContractFreeTyvarSet |> Zset.elements
-    let cloContractFreeTyvars = cloContractFreeTyvarSet |> Zset.elements
+    let cloInternalFreeTyvars = List.ofSeq(HashSetUtils.diff  (new HashSet<_>(cloFreeVarResults.FreeTyvars.FreeTypars)) cloContractFreeTyvarSet)
+    let cloContractFreeTyvars = List.ofSeq(cloContractFreeTyvarSet)
     
     let cloFreeTyvars = cloContractFreeTyvars @ cloInternalFreeTyvars
     

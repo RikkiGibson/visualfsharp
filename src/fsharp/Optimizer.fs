@@ -987,7 +987,7 @@ let AbstractLazyModulInfoByHiding isAssemblyBoundary mhi =
             let tyvars = freeInVal CollectAll v2 
             if  
                 (isAssemblyBoundary && not (freeTyvarsAllPublic tyvars)) || 
-                Zset.exists hiddenTycon tyvars.FreeTycons || 
+                HashSetUtils.exists hiddenTycon tyvars.FreeTycons || 
                 hiddenVal v2
             then detail'
             else ValValue (vref2,detail')
@@ -995,9 +995,9 @@ let AbstractLazyModulInfoByHiding isAssemblyBoundary mhi =
         | CurriedLambdaValue (_,_,_,expr,_) | ConstExprValue(_,expr) when            
             (let fvs = freeInExpr CollectAll expr
              (isAssemblyBoundary && not (freeVarsAllPublic fvs)) || 
-             Zset.exists hiddenVal       fvs.FreeLocals            ||
-             Zset.exists hiddenTycon     fvs.FreeTyvars.FreeTycons ||
-             Zset.exists hiddenTyconRepr fvs.FreeLocalTyconReprs   ||
+             HashSetUtils.exists hiddenVal       fvs.FreeLocals            ||
+             HashSetUtils.exists hiddenTycon     fvs.FreeTyvars.FreeTycons ||
+             HashSetUtils.exists hiddenTyconRepr fvs.FreeLocalTyconReprs   ||
              Zset.exists hiddenRecdField fvs.FreeRecdFields        ||
              Zset.exists hiddenUnionCase fvs.FreeUnionCases ) ->
                 UnknownValue
@@ -1005,7 +1005,7 @@ let AbstractLazyModulInfoByHiding isAssemblyBoundary mhi =
         | ConstValue(_,ty) when 
             (let ftyvs = freeInType CollectAll ty
              (isAssemblyBoundary && not (freeTyvarsAllPublic ftyvs)) || 
-             Zset.exists hiddenTycon ftyvs.FreeTycons) ->
+             HashSetUtils.exists hiddenTycon ftyvs.FreeTycons) ->
                 UnknownValue
         | TupleValue vinfos         -> 
             TupleValue (Array.map abstractExprInfo vinfos)
@@ -1069,7 +1069,7 @@ let AbstractExprInfoByVars (boundVars:Val list,boundTyVars) ivalue =
             (not (isNil boundVars) && List.exists (valEq v2) boundVars) || 
             (not (isNil boundTyVars) &&
              let ftyvs = freeInVal CollectTypars v2
-             List.exists (Zset.memberOf ftyvs.FreeTypars) boundTyVars) -> 
+             List.exists (HashSetUtils.memberOf ftyvs.FreeTypars) boundTyVars) -> 
 
              // hiding value when used in expression 
               abstractExprInfo detail
@@ -1081,8 +1081,8 @@ let AbstractExprInfoByVars (boundVars:Val list,boundTyVars) ivalue =
           // Check for escape in lambda 
           | CurriedLambdaValue (_,_,_,expr,_) | ConstExprValue(_,expr)  when 
             (let fvs = freeInExpr (if isNil boundTyVars then CollectLocals else CollectTyparsAndLocals) expr
-             (not (isNil boundVars) && List.exists (Zset.memberOf fvs.FreeLocals) boundVars) ||
-             (not (isNil boundTyVars) && List.exists (Zset.memberOf fvs.FreeTyvars.FreeTypars) boundTyVars) ||
+             (not (isNil boundVars) && List.exists (HashSetUtils.memberOf fvs.FreeLocals) boundVars) ||
+             (not (isNil boundTyVars) && List.exists (HashSetUtils.memberOf fvs.FreeTyvars.FreeTypars) boundTyVars) ||
              (fvs.UsesMethodLocalConstructs )) ->
               
               // Trimming lambda
@@ -1092,7 +1092,7 @@ let AbstractExprInfoByVars (boundVars:Val list,boundTyVars) ivalue =
           | ConstValue(_,ty) when 
             (not (isNil boundTyVars) && 
              (let ftyvs = freeInType CollectTypars ty
-              List.exists (Zset.memberOf ftyvs.FreeTypars) boundTyVars)) ->
+              List.exists (HashSetUtils.memberOf ftyvs.FreeTypars) boundTyVars)) ->
               UnknownValue
 
           // Otherwise check all sub-values 
@@ -1207,7 +1207,7 @@ let ValueIsUsedOrHasEffect cenv fvs (b:Binding,binfo) =
     Option.isSome v.MemberInfo ||
     binfo.HasEffect || 
     v.IsFixed ||
-    Zset.contains v (fvs())
+    HashSetUtils.contains v (fvs())
 
 let rec SplitValuesByIsUsedOrHasEffect cenv fvs x = 
     x |> List.filter (ValueIsUsedOrHasEffect cenv fvs) |> List.unzip
@@ -1309,7 +1309,7 @@ let TryEliminateBinding cenv _env (TBind(vspec1,e1,spBind)) e2 _m  =
            && (not (vspec2.LogicalName.Contains(suffixForVariablesThatMayNotBeEliminated)))
            // REVIEW: this looks slow. Look only for one variable instead 
            && (let fvs = accFreeInExprs CollectLocals args emptyFreeVars
-               not (Zset.contains vspec1 fvs.FreeLocals))
+               not (HashSetUtils.contains vspec1 fvs.FreeLocals))
 
         // Immediate consumption of value as 2nd or subsequent argument to a construction or projection operation 
         let rec GetImmediateUseContext rargsl argsr = 
@@ -1330,7 +1330,7 @@ let TryEliminateBinding cenv _env (TBind(vspec1,e1,spBind)) e2 _m  =
          | Expr.Match(spMatch,_exprm,TDSwitch(Expr.Val(VRefLocal vspec2,_,_),cases,dflt,_),targets,m,ty2)
              when (valEq vspec1 vspec2 && 
                    let fvs = accFreeInTargets CollectLocals targets (accFreeInSwitchCases CollectLocals cases dflt emptyFreeVars)
-                   not (Zset.contains vspec1 fvs.FreeLocals)) -> 
+                   not (HashSetUtils.contains vspec1 fvs.FreeLocals)) -> 
 
               let spMatch = spBind.Combine(spMatch)
               Some (Expr.Match(spMatch,e1.Range,TDSwitch(e1,cases,dflt,m),targets,m,ty2))
@@ -2773,7 +2773,7 @@ and ComputeSplitToMethodCondition flag threshold cenv env (e,einfo) =
     (let fvs = freeInExpr CollectLocals e
      not fvs.UsesUnboundRethrow  &&
      not fvs.UsesMethodLocalConstructs &&
-     fvs.FreeLocals |> Zset.forall (fun v -> 
+     fvs.FreeLocals |> HashSetUtils.forall (fun v -> 
           // no direct-self-recursive references
           not (env.dontSplitVars.ContainsVal v) &&
           (v.ValReprInfo.IsSome ||

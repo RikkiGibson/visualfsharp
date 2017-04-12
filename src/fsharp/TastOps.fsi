@@ -318,6 +318,7 @@ val valOrder          : IComparer<Val>
 val tyconOrder        : IComparer<Tycon>
 val recdFieldRefOrder : IComparer<RecdFieldRef>
 val typarOrder        : IComparer<Typar>
+val typarEquality        : IEqualityComparer<Typar>
 
 //-------------------------------------------------------------------------
 // Equality on Tycon and Val
@@ -492,16 +493,10 @@ val applyTys : TcGlobals -> TType -> TType list * 'T list -> TType
 // Compute free variables in types
 //------------------------------------------------------------------------- 
  
-val emptyFreeTypars : FreeTypars
 val unionFreeTypars : FreeTypars -> FreeTypars -> FreeTypars
-
-val emptyFreeTycons : FreeTycons
 val unionFreeTycons : FreeTycons -> FreeTycons -> FreeTycons
-
-val emptyFreeTyvars : FreeTyvars
+val emptyFreeTyvars : unit -> FreeTyvars
 val unionFreeTyvars : FreeTyvars -> FreeTyvars -> FreeTyvars
-
-val emptyFreeLocals : FreeLocals
 val unionFreeLocals : FreeLocals -> FreeLocals -> FreeLocals
 
 type FreeVarOptions 

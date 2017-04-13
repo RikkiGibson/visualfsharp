@@ -3847,7 +3847,7 @@ and GetIlxClosureFreeVars cenv m selfv eenvouter takenNames expr =
     //  -- "internal" ones, which get used internally in the implementation
     let cloContractFreeTyvarSet = (freeInType CollectTypars (tyOfExpr cenv.g expr)).FreeTypars 
     
-    let cloInternalFreeTyvars = List.ofSeq(HashSetUtils.diff  (new HashSet<_>(cloFreeVarResults.FreeTyvars.FreeTypars)) cloContractFreeTyvarSet)
+    let cloInternalFreeTyvars = List.ofSeq(HashSetUtils.diff (new HashSet<Typar>(cloFreeVarResults.FreeTyvars.FreeTypars)) cloContractFreeTyvarSet)
     let cloContractFreeTyvars = List.ofSeq(cloContractFreeTyvarSet)
     
     let cloFreeTyvars = cloContractFreeTyvars @ cloInternalFreeTyvars

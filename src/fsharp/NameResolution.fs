@@ -1532,7 +1532,7 @@ let CheckAllTyparsInferrable amap m item =
             let freeInArgsAndRetType = 
                 accFreeInTypes CollectTyparsNoCaching (pinfo.GetParamTypes(amap,m)) 
                        (freeInType CollectTyparsNoCaching (pinfo.GetPropertyType(amap,m)))
-            let free = HashSetUtils.diff (new HashSet<Typar>(freeInDeclaringType.FreeTypars)) freeInArgsAndRetType.FreeTypars
+            let free = HashSetUtils.diff (new HashSet<Typar>(freeInDeclaringType.FreeTypars, typarEquality)) freeInArgsAndRetType.FreeTypars
             HashSetUtils.isEmpty free)
 
     | Item.MethodGroup(_,minfos,_) -> 
@@ -1544,7 +1544,7 @@ let CheckAllTyparsInferrable amap m item =
                 List.foldBack (accFreeInTypes CollectTyparsNoCaching) (minfo.GetParamTypes(amap, m, fminst)) 
                    (accFreeInTypes CollectTyparsNoCaching (minfo.GetObjArgTypes(amap, m, fminst)) 
                        (freeInType CollectTyparsNoCaching (minfo.GetFSharpReturnTy(amap, m, fminst))))
-            let free = HashSetUtils.diff (new HashSet<Typar>(freeInDeclaringType.FreeTypars)) freeInArgsAndRetType.FreeTypars
+            let free = HashSetUtils.diff (new HashSet<Typar>(freeInDeclaringType.FreeTypars, typarEquality)) freeInArgsAndRetType.FreeTypars
             HashSetUtils.isEmpty free)
 
     | Item.CtorGroup _ 

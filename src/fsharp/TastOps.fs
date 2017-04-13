@@ -1734,7 +1734,7 @@ let unionFreeTypars (s1 : FreeTypars) (s2 : FreeTypars) =
 let emptyFreeTyvars (): FreeTyvars = 
     { FreeTycons           = new HashSet<_>()
       FreeTraitSolutions   = new HashSet<_>()
-      FreeTypars           = new HashSet<_>() }
+      FreeTypars           = new HashSet<_>(typarEquality) }
 
 let unionFreeTyvars fvs1 fvs2 =
     { FreeTycons           = HashSetUtils.union fvs1.FreeTycons fvs2.FreeTycons
@@ -7372,7 +7372,7 @@ let doesActivePatternHaveFreeTypars g (v:ValRef) =
     let argtps,restps= (freeInTypes CollectTypars argtys).FreeTypars,(freeInType CollectTypars resty).FreeTypars        
     // Error if an active pattern is generic in type variables that only occur in the result Choice<_,...>.
     // Note: The test restricts to v.Typars since typars from the closure are considered fixed.
-    not (HashSetUtils.isEmpty (HashSetUtils.inter (HashSetUtils.diff (new HashSet<_>(restps)) argtps) vtps))
+    not (HashSetUtils.isEmpty (HashSetUtils.inter (HashSetUtils.diff (new HashSet<_>(restps, typarEquality)) argtps) vtps))
 
 //---------------------------------------------------------------------------
 // RewriteExpr: rewrite bottom up with interceptors 

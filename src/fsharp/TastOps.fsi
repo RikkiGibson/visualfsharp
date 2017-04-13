@@ -692,7 +692,7 @@ val abstractSlotValsOfTycons : Tycon list -> Val list
 // Free variables in expressions etc.
 //------------------------------------------------------------------------- 
 
-val emptyFreeVars : FreeVars
+val emptyFreeVars : unit -> FreeVars
 val unionFreeVars : FreeVars -> FreeVars -> FreeVars
 
 val accFreeInTargets      : FreeVarOptions -> DecisionTreeTarget array -> FreeVars -> FreeVars

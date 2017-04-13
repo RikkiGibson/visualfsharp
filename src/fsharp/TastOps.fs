@@ -3903,7 +3903,7 @@ let rebuildLinearMatchExpr (sp,m,dtree,tg1,e2,sp2,m2,ty) =
 // Free variables in terms.  All binders are distinct.
 //---------------------------------------------------------------------------
 
-let emptyFreeVars =  
+let emptyFreeVars() =  
   { UsesMethodLocalConstructs=false;
     UsesUnboundRethrow=false;
     FreeLocalTyconReprs=(new HashSet<_>()); 
@@ -3913,8 +3913,6 @@ let emptyFreeVars =
     FreeUnionCases = emptyFreeUnionCases}
 
 let unionFreeVars fvs1 fvs2 = 
-  if fvs1 === emptyFreeVars then fvs2 else 
-  if fvs2 === emptyFreeVars then fvs1 else
   { FreeLocals                    = unionFreeLocals fvs1.FreeLocals fvs2.FreeLocals;
     FreeTyvars                    = unionFreeTyvars fvs1.FreeTyvars fvs2.FreeTyvars;    
     UsesMethodLocalConstructs     = fvs1.UsesMethodLocalConstructs || fvs2.UsesMethodLocalConstructs;
@@ -4133,7 +4131,7 @@ and accFreeInExprLinear (opts:FreeVarOptions) x acc contf =
     | Expr.Let (bind,e,_,cache) -> 
         let contf = contf << (fun free ->
           unionFreeVars (freeVarsCacheCompute opts cache (fun () -> bindLhs opts bind (accBindRhs opts bind free))) acc )
-        accFreeInExprLinear opts e emptyFreeVars contf
+        accFreeInExprLinear opts e (emptyFreeVars()) contf
     | _ -> 
       // No longer linear expr
       accFreeInExpr opts x acc |> contf
@@ -4164,7 +4162,7 @@ and accFreeInExprNonLinear opts x acc =
                 (accFreeVarsInTy opts typ
                    (accFreeInExpr opts basecall
                       (accFreeInMethods opts overrides 
-                         (List.foldBack (accFreeInInterfaceImpl opts) iimpls emptyFreeVars))))))
+                         (List.foldBack (accFreeInInterfaceImpl opts) iimpls (emptyFreeVars())))))))
            acc  
     // NON-BINDING CONSTRUCTS 
     | Expr.Const _ -> acc
@@ -4206,7 +4204,7 @@ and accFreeInExprNonLinear opts x acc =
         unionFreeVars 
           (accFreeVarsInTys opts tinst
             (accFreeInExprs opts [e1;e2] acc))
-          (bound_rethrow (accFreeInExpr opts e3 emptyFreeVars))
+          (bound_rethrow (accFreeInExpr opts e3 (emptyFreeVars())))
 
     | Expr.Op (op,tinst,args,_) -> 
          let acc = accFreeInOp opts op acc
@@ -4290,8 +4288,8 @@ and accFreeInExprs opts (es: Exprs) acc =
 
 and accFreeInSlotSig opts (TSlotSig(_,typ,_,_,_,_)) acc = accFreeVarsInTy opts typ acc
  
-and freeInDecisionTree opts e = accFreeInDecisionTree opts e emptyFreeVars
-and freeInExpr opts e = accFreeInExpr opts e emptyFreeVars
+and freeInDecisionTree opts e = accFreeInDecisionTree opts e (emptyFreeVars())
+and freeInExpr opts e = accFreeInExpr opts e (emptyFreeVars())
 
 // Note: these are only an approximation - they are currently used only by the optimizer  
 let rec accFreeInModuleOrNamespace opts x acc = 
@@ -4310,8 +4308,8 @@ and accFreeInModuleOrNamespaces opts x acc =
 
 // NOTE: we don't yet need to ask for free variables in module expressions 
 
-let freeInBindingRhs opts bind = accBindRhs opts bind emptyFreeVars
-let freeInModuleOrNamespace opts mdef = accFreeInModuleOrNamespace opts mdef emptyFreeVars
+let freeInBindingRhs opts bind = accBindRhs opts bind (emptyFreeVars())
+let freeInModuleOrNamespace opts mdef = accFreeInModuleOrNamespace opts mdef (emptyFreeVars())
 
 //---------------------------------------------------------------------------
 // Destruct - rarely needed

@@ -12447,7 +12447,7 @@ module IncrClassChecking =
                                             
         let staticForcedFieldVars,instanceForcedFieldVars = 
              let (staticForcedFieldVars,instanceForcedFieldVars) = 
-                 ((emptyFreeVars,emptyFreeVars),decs) ||> List.fold (fun (staticForcedFieldVars,instanceForcedFieldVars) dec -> 
+                 ((emptyFreeVars(),emptyFreeVars()),decs) ||> List.fold (fun (staticForcedFieldVars,instanceForcedFieldVars) dec -> 
                     match dec with 
                     | Phase2CCtorJustAfterLastLet
                     | Phase2CCtorJustAfterSuperInit ->  

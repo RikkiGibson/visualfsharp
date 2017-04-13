@@ -1307,8 +1307,8 @@ let TryEliminateBinding cenv _env (TBind(vspec1,e1,spBind)) e2 _m  =
         let IsUniqueUse vspec2 args = 
               valEq vspec1 vspec2  
            && (not (vspec2.LogicalName.Contains(suffixForVariablesThatMayNotBeEliminated)))
-           // REVIEW: this looks slow. Look only for one variable instead 
-           && (let fvs = accFreeInExprs CollectLocals args emptyFreeVars
+           // REVIEW: this looks slow. Look only for one variable instead            
+           && (let fvs = accFreeInExprs CollectLocals args (emptyFreeVars())
                not (HashSetUtils.contains vspec1 fvs.FreeLocals))
 
         // Immediate consumption of value as 2nd or subsequent argument to a construction or projection operation 
@@ -1329,7 +1329,7 @@ let TryEliminateBinding cenv _env (TBind(vspec1,e1,spBind)) e2 _m  =
          // Immediate consumption of value by a pattern match 'let x = e in match x with ...'
          | Expr.Match(spMatch,_exprm,TDSwitch(Expr.Val(VRefLocal vspec2,_,_),cases,dflt,_),targets,m,ty2)
              when (valEq vspec1 vspec2 && 
-                   let fvs = accFreeInTargets CollectLocals targets (accFreeInSwitchCases CollectLocals cases dflt emptyFreeVars)
+                   let fvs = accFreeInTargets CollectLocals targets (accFreeInSwitchCases CollectLocals cases dflt (emptyFreeVars()))
                    not (HashSetUtils.contains vspec1 fvs.FreeLocals)) -> 
 
               let spMatch = spBind.Combine(spMatch)
@@ -2856,7 +2856,7 @@ and OptimizeDecisionTree cenv env m x =
         let (bind,binfo),envinner = OptimizeBinding cenv false env bind 
         let rest,rinfo = OptimizeDecisionTree cenv envinner m rest 
 
-        if ValueIsUsedOrHasEffect cenv (fun () -> (accFreeInDecisionTree CollectLocals rest emptyFreeVars).FreeLocals) (bind,binfo) then
+        if ValueIsUsedOrHasEffect cenv (fun () -> (accFreeInDecisionTree CollectLocals rest (emptyFreeVars())).FreeLocals) (bind,binfo) then
 
             let info = CombineValueInfosUnknown [rinfo;binfo]
             // try to fold the let-binding into a single result expression

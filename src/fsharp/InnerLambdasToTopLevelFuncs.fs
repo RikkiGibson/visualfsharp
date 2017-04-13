@@ -487,7 +487,7 @@ module Pass2_DetermineReqdItems =
           if verboseTLR then dprintf "shortCall: not-rec: %s\n" gv.LogicalName
           state
 
-    let FreeInBindings bs = List.fold (foldOn (freeInBindingRhs CollectTyparsAndLocals) unionFreeVars) emptyFreeVars bs
+    let FreeInBindings bs = List.fold (foldOn (freeInBindingRhs CollectTyparsAndLocals) unionFreeVars) (emptyFreeVars()) bs
 
     /// Intercepts selected exprs.
     ///   "letrec f1,f2,... = fBody1,fBody2,... in rest" - 

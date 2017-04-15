@@ -315,7 +315,9 @@ type TyconRefMultiMap<'T> =
 //------------------------------------------------------------------------- 
 
 val valOrder          : IComparer<Val>
+val valEquality        : IEqualityComparer<Val>
 val tyconOrder        : IComparer<Tycon>
+val tyconEquality        : IEqualityComparer<Tycon>
 val recdFieldRefOrder : IComparer<RecdFieldRef>
 val typarOrder        : IComparer<Typar>
 val typarEquality        : IEqualityComparer<Typar>

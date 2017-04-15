@@ -15,7 +15,7 @@ module HashSetUtils =
         for a in set do fn a
 
     let inter (setA: HashSet<'a>) (setB: HashSet<'a>): HashSet<'a> =
-        let newSet = new HashSet<'a>(setA)
+        let newSet = new HashSet<'a>(setA, setA.Comparer)
         newSet.IntersectWith(setB)
         newSet
 

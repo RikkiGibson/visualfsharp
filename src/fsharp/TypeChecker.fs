@@ -11292,14 +11292,14 @@ and TcIncrementalLetRecGeneralization cenv scopem
 
                     //printfn "(failed generalization test 1 for binding for %s)" pgrbind.RecBindingInfo.Val.DisplayName
                     // Any declared type parameters in an type are always generalizable
-                    let freeInBinding = HashSetUtils.diff freeInBinding (NormalizeDeclaredTyparsForEquiRecursiveInference cenv.g pgrbind.ExtraGeneralizableTypars)
+                    let freeInBinding = HashSetUtils.diff freeInBinding (new HashSet<_>((NormalizeDeclaredTyparsForEquiRecursiveInference cenv.g pgrbind.ExtraGeneralizableTypars), typarEquality))
 
                     if freeInBinding.Count = 0 then true else
 
                     //printfn "(failed generalization test 2 for binding for %s)" pgrbind.RecBindingInfo.Val.DisplayName
 
                     // Any declared method parameters can always be generalized
-                    let freeInBinding = HashSetUtils.diff freeInBinding (NormalizeDeclaredTyparsForEquiRecursiveInference cenv.g pgrbind.RecBindingInfo.DeclaredTypars)
+                    let freeInBinding = HashSetUtils.diff freeInBinding (new HashSet<_>((NormalizeDeclaredTyparsForEquiRecursiveInference cenv.g pgrbind.RecBindingInfo.DeclaredTypars), typarEquality))
 
                     if freeInBinding.Count = 0 then true else
 

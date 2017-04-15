@@ -1717,7 +1717,9 @@ let unionFreeRecdFields s1 s2 =
 
 let emptyFreeUnionCases = Zset.empty unionCaseRefOrder
 let unionFreeUnionCases s1 s2 = 
-    Zset.union s1 s2
+    if s1 === emptyFreeUnionCases then s2
+    elif s2 === emptyFreeUnionCases then s1
+    else Zset.union s1 s2
 
 let unionFreeTycons (s1: FreeTycons) (s2: FreeTycons) = 
     HashSetUtils.union s1 s2
@@ -1732,8 +1734,7 @@ let typarEquality =
         member x.GetHashCode (v1) = v1.Stamp.GetHashCode()} 
 
 let unionFreeTypars (s1 : FreeTypars) (s2 : FreeTypars) = 
-    s1.UnionWith(s2)
-    s1
+    HashSetUtils.union s1 s2
 
 let emptyFreeTyvars (): FreeTyvars = 
     { FreeTycons           = new HashSet<_>(tyconEquality)
@@ -1824,7 +1825,7 @@ let CollectLocals = CollectTyparsAndLocals
 let accFreeLocalTycon opts x acc = 
     if not opts.includeLocalTycons then acc else
     if HashSetUtils.contains x acc.FreeTycons then acc else 
-    { acc with FreeTycons = acc.FreeTycons } 
+    { acc with FreeTycons = HashSetUtils.add x acc.FreeTycons } 
 
 let accFreeTycon opts (tcr:TyconRef) acc = 
     if not opts.includeLocalTycons then acc
@@ -7376,7 +7377,7 @@ let doesActivePatternHaveFreeTypars g (v:ValRef) =
     let argtps,restps= (freeInTypes CollectTypars argtys).FreeTypars,(freeInType CollectTypars resty).FreeTypars        
     // Error if an active pattern is generic in type variables that only occur in the result Choice<_,...>.
     // Note: The test restricts to v.Typars since typars from the closure are considered fixed.
-    not (HashSetUtils.isEmpty (HashSetUtils.inter (HashSetUtils.diff (new HashSet<_>(restps, typarEquality)) argtps) vtps))
+    not (HashSetUtils.isEmpty (HashSetUtils.inter (HashSetUtils.diff restps argtps) vtps))
 
 //---------------------------------------------------------------------------
 // RewriteExpr: rewrite bottom up with interceptors 

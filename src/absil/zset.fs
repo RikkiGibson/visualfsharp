@@ -47,8 +47,7 @@ module HashSetUtils =
         newSet
 
     let diff (setA: HashSet<'a>) (setB: seq<'a>): HashSet<'a> =
-        let newSet = new HashSet<'a>(setA, setA.Comparer)
-        ignore (newSet.Except(setB))
+        let newSet = new HashSet<'a>(setA.Except(setB), setA.Comparer)
         newSet
 
     let remove (item: 'a) (set: HashSet<'a>) : HashSet<'a> =

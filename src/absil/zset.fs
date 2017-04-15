@@ -22,7 +22,7 @@ module HashSetUtils =
     let isEmpty (set: HashSet<'a>): bool = set.Count = 0
 
     let filter (fn: 'a -> bool) (set: HashSet<'a>) =
-        let newSet = new HashSet<'a>(set)
+        let newSet = new HashSet<'a>(set, set.Comparer)
         ignore (newSet.RemoveWhere(new System.Predicate<'a>(fun x -> not (fn x))))
         newSet
 
@@ -42,22 +42,22 @@ module HashSetUtils =
             Some(set.First(new System.Func<_,_>(fn)))
 
     let union (setA: HashSet<'a>) (setB: HashSet<'a>): HashSet<'a> =
-        let newSet = new HashSet<'a>(setA)
+        let newSet = new HashSet<'a>(setA, setA.Comparer)
         newSet.UnionWith(setB)
         newSet
 
     let diff (setA: HashSet<'a>) (setB: seq<'a>): HashSet<'a> =
-        let newSet = new HashSet<'a>(setA)
+        let newSet = new HashSet<'a>(setA, setA.Comparer)
         ignore (newSet.Except(setB))
         newSet
 
     let remove (item: 'a) (set: HashSet<'a>) : HashSet<'a> =
-        let newSet = new HashSet<'a>(set)
+        let newSet = new HashSet<'a>(set, set.Comparer)
         ignore (newSet.Remove(item))
         newSet
            
     let add (item: 'a) (set: HashSet<'a>) : HashSet<'a> =
-        let newSet = new HashSet<'a>(set)
+        let newSet = new HashSet<'a>(set, set.Comparer)
         ignore (newSet.Add(item))
         newSet
 

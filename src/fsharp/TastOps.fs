@@ -936,7 +936,11 @@ let rec getErasedTypes g ty =
 //---------------------------------------------------------------------------
 
 let valOrder = { new IComparer<Val> with member __.Compare(v1,v2) = compare v1.Stamp v2.Stamp }
+let valEquality = { new IEqualityComparer<Val> with member __.Equals(v1,v2) = v1.Stamp = v2.Stamp
+                                                    member __.GetHashCode(v1) = v1.Stamp.GetHashCode() }
 let tyconOrder = { new IComparer<Tycon> with member __.Compare(tc1,tc2) = compare tc1.Stamp tc2.Stamp }
+let tyconEquality = { new IEqualityComparer<Tycon> with member __.Equals(tc1,tc2) = tc1.Stamp = tc2.Stamp 
+                                                        member __.GetHashCode(t1) = t1.Stamp.GetHashCode() }
 let recdFieldRefOrder  = 
     { new IComparer<RecdFieldRef> with 
          member __.Compare(RFRef(tcref1,nm1), RFRef(tcref2,nm2)) = 
@@ -1732,8 +1736,8 @@ let unionFreeTypars (s1 : FreeTypars) (s2 : FreeTypars) =
     s1
 
 let emptyFreeTyvars (): FreeTyvars = 
-    { FreeTycons           = new HashSet<_>()
-      FreeTraitSolutions   = new HashSet<_>()
+    { FreeTycons           = new HashSet<_>(tyconEquality)
+      FreeTraitSolutions   = new HashSet<_>(valEquality)
       FreeTypars           = new HashSet<_>(typarEquality) }
 
 let unionFreeTyvars fvs1 fvs2 =
@@ -3906,8 +3910,8 @@ let rebuildLinearMatchExpr (sp,m,dtree,tg1,e2,sp2,m2,ty) =
 let emptyFreeVars() =  
   { UsesMethodLocalConstructs=false;
     UsesUnboundRethrow=false;
-    FreeLocalTyconReprs=(new HashSet<_>()); 
-    FreeLocals= (new HashSet<Val>()) ; 
+    FreeLocalTyconReprs=(new HashSet<_>(tyconEquality)); 
+    FreeLocals= (new HashSet<Val>(valEquality)) ; 
     FreeTyvars=emptyFreeTyvars();
     FreeRecdFields = emptyFreeRecdFields;
     FreeUnionCases = emptyFreeUnionCases}

@@ -221,9 +221,9 @@ type UngeneralizableItem(computeFreeTyvars : (unit -> FreeTyvars)) =
     //   (b)  its set of FreeTycons will not change as further constraints are added to the system
     let mutable willNeverHaveFreeTypars = false
     // If WillNeverHaveFreeTypars then we can cache the computation of FreeTycons, since they are invariant.
-    let mutable cachedFreeLocalTycons = (new HashSet<Tycon>())
+    let mutable cachedFreeLocalTycons = (new HashSet<Tycon>(tyconEquality))
     // If WillNeverHaveFreeTypars then we can cache the computation of FreeTraitSolutions, since they are invariant.
-    let mutable cachedFreeTraitSolutions =  (new HashSet<Val>()) 
+    let mutable cachedFreeTraitSolutions =  (new HashSet<Val>(valEquality)) 
 
     member item.GetFreeTyvars() = 
         let fvs = computeFreeTyvars()
@@ -2132,7 +2132,7 @@ module GeneralizationHelpers =
                 ftyvs.FreeTycons
             if HashSetUtils.isEmpty ftycs then acc else unionFreeTycons ftycs acc
 
-        List.fold acc_in_free_item (new HashSet<Tycon>()) env.eUngeneralizableItems 
+        List.fold acc_in_free_item (new HashSet<Tycon>(tyconEquality)) env.eUngeneralizableItems 
 
     let ComputeUnabstractableTraitSolutions env = 
         let acc_in_free_item acc (item: UngeneralizableItem) = 
@@ -2142,7 +2142,7 @@ module GeneralizationHelpers =
                 ftyvs.FreeTraitSolutions
             if HashSetUtils.isEmpty ftycs then acc else unionFreeLocals ftycs acc
 
-        List.fold acc_in_free_item  (new HashSet<Val>())  env.eUngeneralizableItems 
+        List.fold acc_in_free_item  (new HashSet<Val>(valEquality))  env.eUngeneralizableItems 
 
     let rec IsGeneralizableValue g t = 
         match t with 

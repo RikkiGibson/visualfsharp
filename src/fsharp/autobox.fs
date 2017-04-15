@@ -124,7 +124,7 @@ let DecideImplFile g amap implFile =
          exprIntercept = DecideExpr cenv
       }
 
-    let z = FoldImplFile folder  (new HashSet<Val>()) implFile
+    let z = FoldImplFile folder  (new HashSet<Val>(valEquality)) implFile
 
     z
 

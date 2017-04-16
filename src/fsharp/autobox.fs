@@ -41,7 +41,7 @@ let DecideLambda exprF cenv topValInfo expr ety z   =
         let args = Option.fold snoc args baseValOpt
         let syntacticArgs = Option.fold snoc args  ctorThisValOpt
         
-        let z = HashSetUtils.union z (DecideEscapes syntacticArgs body)
+        let z = HashSetUtils.union (DecideEscapes syntacticArgs body) z //TODO FOCTOTHORPE check where z comes from, switch order if possible
         let z = match exprF with Some f -> f z body | None -> z
         z
     | _ -> z
@@ -87,7 +87,7 @@ let DecideExpr cenv exprF z expr  =
         let CheckMethod z (TObjExprMethod(_,_attribs,_tps,vs,body,_m)) = 
             let vs = List.concat vs
             let syntacticArgs = (match baseValOpt with Some x -> x:: vs | None -> vs)
-            let z = HashSetUtils.union z (DecideEscapes syntacticArgs body)
+            let z = HashSetUtils.union (DecideEscapes syntacticArgs body) z //TODO FOCTOTHORPE check where z comes from, switch order if possible
             exprF z body
 
         let CheckMethods z l = (z,l) ||> List.fold CheckMethod 

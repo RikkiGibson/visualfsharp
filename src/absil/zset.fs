@@ -15,16 +15,14 @@ module HashSetUtils =
         for a in set do fn a
 
     let inter (setA: HashSet<'a>) (setB: HashSet<'a>): HashSet<'a> =
-        let newSet = new HashSet<'a>(setA, setA.Comparer)
-        newSet.IntersectWith(setB)
-        newSet
+        setA.IntersectWith(setB)
+        setA
 
     let isEmpty (set: HashSet<'a>): bool = set.Count = 0
 
     let filter (fn: 'a -> bool) (set: HashSet<'a>) =
-        let newSet = new HashSet<'a>(set, set.Comparer)
-        ignore (newSet.RemoveWhere(new System.Predicate<'a>(fun x -> not (fn x))))
-        newSet
+        set.RemoveWhere(new System.Predicate<'a>(fun x -> not (fn x))) |> ignore
+        set
 
     let exists (fn: 'a -> bool) (set: HashSet<'a>) : bool = 
         set.Any(new System.Func<_,_>(fn))
@@ -42,23 +40,20 @@ module HashSetUtils =
             Some(set.First(new System.Func<_,_>(fn)))
 
     let union (setA: HashSet<'a>) (setB: HashSet<'a>): HashSet<'a> =
-        let newSet = new HashSet<'a>(setA, setA.Comparer)
-        newSet.UnionWith(setB)
-        newSet
+        setA.UnionWith(setB)
+        setA
 
     let diff (setA: HashSet<'a>) (setB: seq<'a>): HashSet<'a> =
-        let newSet = new HashSet<'a>(setA.Except(setB), setA.Comparer)
-        newSet
+        setA.RemoveWhere(fun x -> not (setB.Contains(x))) |> ignore
+        setA
 
     let remove (item: 'a) (set: HashSet<'a>) : HashSet<'a> =
-        let newSet = new HashSet<'a>(set, set.Comparer)
-        ignore (newSet.Remove(item))
-        newSet
+        ignore (set.Remove(item))
+        set
            
     let add (item: 'a) (set: HashSet<'a>) : HashSet<'a> =
-        let newSet = new HashSet<'a>(set, set.Comparer)
-        ignore (newSet.Add(item))
-        newSet
+        ignore (set.Add(item))
+        set
 
     let forall (fn: 'a -> bool) (set: HashSet<'a>) : bool = 
         set.All(new System.Func<_,_>(fn))

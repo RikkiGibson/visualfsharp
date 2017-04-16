@@ -1707,8 +1707,6 @@ let ValRefIsExplicitImpl g (vref:ValRef) = ValIsExplicitImpl g vref.Deref
 // an equation assigned by type inference.
 //---------------------------------------------------------------------------
 
-let unionFreeLocals (s1: FreeLocals) (s2: FreeLocals) = HashSetUtils.union s1 s2
-
 let emptyFreeRecdFields = Zset.empty recdFieldRefOrder
 let unionFreeRecdFields s1 s2 = 
     if s1 === emptyFreeRecdFields then s2
@@ -1721,9 +1719,6 @@ let unionFreeUnionCases s1 s2 =
     elif s2 === emptyFreeUnionCases then s1
     else Zset.union s1 s2
 
-let unionFreeTycons (s1: FreeTycons) (s2: FreeTycons) = 
-    HashSetUtils.union s1 s2
-
 let typarOrder =
     { new System.Collections.Generic.IComparer<Typar> with 
         member x.Compare (v1:Typar, v2:Typar) = compare v1.Stamp v2.Stamp } 
@@ -1733,8 +1728,6 @@ let typarEquality =
        member x.Equals (v1:Typar, v2:Typar) = v1.Stamp = v2.Stamp
         member x.GetHashCode (v1) = v1.Stamp.GetHashCode()} 
 
-let unionFreeTypars (s1 : FreeTypars) (s2 : FreeTypars) = 
-    HashSetUtils.union s1 s2
 
 let emptyFreeTyvars (): FreeTyvars = 
     { FreeTycons           = new HashSet<_>(tyconEquality)
@@ -1907,7 +1900,7 @@ and accFreeInType opts ty acc  =
     | TType_ucase (UCRef(tc,_),tinst) -> accFreeInTypes opts tinst (accFreeTycon opts tc  acc)
     | TType_fun (d,r) -> accFreeInType opts d (accFreeInType opts r acc)
     | TType_var r -> accFreeTyparRef opts r acc
-    | TType_forall (tps,r) -> unionFreeTyvars (boundTypars opts tps (freeInType opts r)) acc
+    | TType_forall (tps,r) -> unionFreeTyvars acc (boundTypars opts tps (freeInType opts r)) 
     | TType_measure unt -> accFreeInMeasure opts unt acc
 
 and accFreeInTupInfo _opts unt acc = 
@@ -3918,11 +3911,11 @@ let emptyFreeVars() =
     FreeUnionCases = emptyFreeUnionCases}
 
 let unionFreeVars fvs1 fvs2 = 
-  { FreeLocals                    = unionFreeLocals fvs1.FreeLocals fvs2.FreeLocals;
+  { FreeLocals                    = HashSetUtils.union fvs1.FreeLocals fvs2.FreeLocals;
     FreeTyvars                    = unionFreeTyvars fvs1.FreeTyvars fvs2.FreeTyvars;    
     UsesMethodLocalConstructs     = fvs1.UsesMethodLocalConstructs || fvs2.UsesMethodLocalConstructs;
     UsesUnboundRethrow            = fvs1.UsesUnboundRethrow || fvs2.UsesUnboundRethrow;
-    FreeLocalTyconReprs           = unionFreeTycons fvs1.FreeLocalTyconReprs fvs2.FreeLocalTyconReprs; 
+    FreeLocalTyconReprs           = HashSetUtils.union fvs1.FreeLocalTyconReprs fvs2.FreeLocalTyconReprs; 
     FreeRecdFields                = unionFreeRecdFields fvs1.FreeRecdFields fvs2.FreeRecdFields; 
     FreeUnionCases                = unionFreeUnionCases fvs1.FreeUnionCases fvs2.FreeUnionCases; }
 
@@ -7377,7 +7370,7 @@ let doesActivePatternHaveFreeTypars g (v:ValRef) =
     let argtps,restps= (freeInTypes CollectTypars argtys).FreeTypars,(freeInType CollectTypars resty).FreeTypars        
     // Error if an active pattern is generic in type variables that only occur in the result Choice<_,...>.
     // Note: The test restricts to v.Typars since typars from the closure are considered fixed.
-    not (HashSetUtils.isEmpty (HashSetUtils.inter (HashSetUtils.diff restps argtps) vtps))
+    not (HashSetUtils.isEmpty (HashSetUtils.inter vtps (HashSetUtils.diff restps argtps)))
 
 //---------------------------------------------------------------------------
 // RewriteExpr: rewrite bottom up with interceptors 

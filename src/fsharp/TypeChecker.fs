@@ -2130,7 +2130,7 @@ module GeneralizationHelpers =
                 if item.WillNeverHaveFreeTypars then item.CachedFreeLocalTycons else 
                 let ftyvs = item.GetFreeTyvars()
                 ftyvs.FreeTycons
-            if HashSetUtils.isEmpty ftycs then acc else unionFreeTycons ftycs acc
+            if HashSetUtils.isEmpty ftycs then acc else HashSetUtils.union ftycs acc
 
         List.fold acc_in_free_item (new HashSet<Tycon>(tyconEquality)) env.eUngeneralizableItems 
 
@@ -2140,7 +2140,7 @@ module GeneralizationHelpers =
                 if item.WillNeverHaveFreeTypars then item.CachedFreeTraitSolutions else 
                 let ftyvs = item.GetFreeTyvars()
                 ftyvs.FreeTraitSolutions
-            if HashSetUtils.isEmpty ftycs then acc else unionFreeLocals ftycs acc
+            if HashSetUtils.isEmpty ftycs then acc else HashSetUtils.union ftycs acc
 
         List.fold acc_in_free_item  (new HashSet<Val>(valEquality))  env.eUngeneralizableItems 
 
@@ -2218,7 +2218,7 @@ module GeneralizationHelpers =
             generalizedTypars, freeInEnv
         else 
             let freeInEnv = 
-                unionFreeTypars 
+                HashSetUtils.union 
                     (accFreeInTypars CollectAllNoCaching ungeneralizableTypars1 
                         (accFreeInTypars CollectAllNoCaching ungeneralizableTypars2 
                             (accFreeInTypars CollectAllNoCaching ungeneralizableTypars3 (emptyFreeTyvars())))).FreeTypars 
@@ -11292,14 +11292,14 @@ and TcIncrementalLetRecGeneralization cenv scopem
 
                     //printfn "(failed generalization test 1 for binding for %s)" pgrbind.RecBindingInfo.Val.DisplayName
                     // Any declared type parameters in an type are always generalizable
-                    let freeInBinding = HashSetUtils.diff freeInBinding (new HashSet<_>((NormalizeDeclaredTyparsForEquiRecursiveInference cenv.g pgrbind.ExtraGeneralizableTypars), typarEquality))
+                    let freeInBinding = HashSetUtils.diff freeInBinding (NormalizeDeclaredTyparsForEquiRecursiveInference cenv.g pgrbind.ExtraGeneralizableTypars)
 
                     if freeInBinding.Count = 0 then true else
 
                     //printfn "(failed generalization test 2 for binding for %s)" pgrbind.RecBindingInfo.Val.DisplayName
 
                     // Any declared method parameters can always be generalized
-                    let freeInBinding = HashSetUtils.diff freeInBinding (new HashSet<_>((NormalizeDeclaredTyparsForEquiRecursiveInference cenv.g pgrbind.RecBindingInfo.DeclaredTypars), typarEquality))
+                    let freeInBinding = HashSetUtils.diff freeInBinding (NormalizeDeclaredTyparsForEquiRecursiveInference cenv.g pgrbind.RecBindingInfo.DeclaredTypars)
 
                     if freeInBinding.Count = 0 then true else
 
@@ -11368,7 +11368,7 @@ and TcIncrementalLetRecGeneralization cenv scopem
                 let supportForBindings = newGeneralizableBindings |> List.collect (TcLetrecComputeSupportForBinding cenv)
                 GeneralizationHelpers.CanonicalizePartialInferenceProblem (cenv,denv,scopem) supportForBindings 
                  
-                let generalizedTyparsL = newGeneralizableBindings |> List.map (TcLetrecComputeAndGeneralizeGenericTyparsForBinding cenv denv (new HashSet<Typar>(freeInEnv, typarEquality))) 
+                let generalizedTyparsL = newGeneralizableBindings |> List.map (TcLetrecComputeAndGeneralizeGenericTyparsForBinding cenv denv freeInEnv) 
                 
                 // Generalize the bindings. 
                 let newGeneralizedRecBinds = (generalizedTyparsL,newGeneralizableBindings) ||> List.map2 (TcLetrecGeneralizeBinding cenv denv ) 
@@ -11390,7 +11390,7 @@ and TcIncrementalLetRecGeneralization cenv scopem
 /// Compute the type variables which may be generalized and perform the generalization 
 and TcLetrecComputeAndGeneralizeGenericTyparsForBinding cenv denv freeInEnv (pgrbind : PreGeneralizationRecursiveBinding) =
 
-    let freeInEnv = HashSetUtils.diff freeInEnv (NormalizeDeclaredTyparsForEquiRecursiveInference cenv.g pgrbind.ExtraGeneralizableTypars)
+    let freeInEnv = HashSetUtils.diff (new HashSet<_>(freeInEnv, typarEquality)) (NormalizeDeclaredTyparsForEquiRecursiveInference cenv.g pgrbind.ExtraGeneralizableTypars)
 
     let rbinfo = pgrbind.RecBindingInfo
     let vspec = rbinfo.Val

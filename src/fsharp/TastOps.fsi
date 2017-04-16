@@ -494,12 +494,9 @@ val applyTys : TcGlobals -> TType -> TType list * 'T list -> TType
 //-------------------------------------------------------------------------
 // Compute free variables in types
 //------------------------------------------------------------------------- 
- 
-val unionFreeTypars : FreeTypars -> FreeTypars -> FreeTypars
-val unionFreeTycons : FreeTycons -> FreeTycons -> FreeTycons
+
 val emptyFreeTyvars : unit -> FreeTyvars
 val unionFreeTyvars : FreeTyvars -> FreeTyvars -> FreeTyvars
-val unionFreeLocals : FreeLocals -> FreeLocals -> FreeLocals
 
 type FreeVarOptions 
 

@@ -1735,9 +1735,9 @@ let emptyFreeTyvars (): FreeTyvars =
       FreeTypars           = new HashSet<_>(typarEquality) }
 
 let unionFreeTyvars fvs1 fvs2 =
-    { FreeTycons           = HashSetUtils.union fvs1.FreeTycons fvs2.FreeTycons
-      FreeTraitSolutions   = HashSetUtils.union fvs1.FreeTraitSolutions fvs2.FreeTraitSolutions
-      FreeTypars           = HashSetUtils.union fvs1.FreeTypars fvs2.FreeTypars }
+    { FreeTycons           = HashSetUtils.union (new HashSet<_>(fvs1.FreeTycons, tyconEquality)) fvs2.FreeTycons
+      FreeTraitSolutions   = HashSetUtils.union (new HashSet<_>(fvs1.FreeTraitSolutions, valEquality)) fvs2.FreeTraitSolutions
+      FreeTypars           = HashSetUtils.union (new HashSet<_>(fvs1.FreeTypars, typarEquality)) fvs2.FreeTypars }
 
 type FreeVarOptions = 
     { canCache: bool
@@ -1815,10 +1815,11 @@ let CollectTypars = CollectTyparsAndLocals
 let CollectLocals = CollectTyparsAndLocals
 
 
-let accFreeLocalTycon opts x acc = 
+let accFreeLocalTycon opts x acc =
     if not opts.includeLocalTycons then acc else
     if HashSetUtils.contains x acc.FreeTycons then acc else 
-    { acc with FreeTycons = HashSetUtils.add x acc.FreeTycons } 
+    // Not entirely sure what the type of x is...
+    { acc with FreeTycons = HashSetUtils.add x (new HashSet<_>(acc.FreeTycons,tyconEquality)) } 
 
 let accFreeTycon opts (tcr:TyconRef) acc = 
     if not opts.includeLocalTycons then acc
@@ -1829,7 +1830,7 @@ let rec boundTypars opts tps acc =
     // Bound type vars form a recursively-referential set due to constraints, e.g.  A : I<B>, B : I<A> 
     // So collect up free vars in all constraints first, then bind all variables 
     let acc = List.foldBack (fun (tp:Typar) acc -> accFreeInTyparConstraints opts tp.Constraints acc) tps acc
-    List.foldBack (fun tp acc -> { acc with FreeTypars = HashSetUtils.remove tp acc.FreeTypars}) tps acc
+    List.foldBack (fun tp acc -> { acc with FreeTypars = HashSetUtils.remove tp (new HashSet<_>(acc.FreeTypars, typarEquality)) }) tps acc
 
 and accFreeInTyparConstraints opts cxs acc =
     List.foldBack (accFreeInTyparConstraint opts) cxs acc
@@ -1872,7 +1873,7 @@ and accFreeInTraitSln opts sln acc =
 
 and accFreeLocalValInTraitSln _opts v fvs =
     if HashSetUtils.contains v fvs.FreeTraitSolutions then fvs 
-    else { fvs with FreeTraitSolutions = HashSetUtils.add v fvs.FreeTraitSolutions}
+    else { fvs with FreeTraitSolutions = HashSetUtils.add v (new HashSet<_>(fvs.FreeTraitSolutions, valEquality))}
 
 and accFreeValRefInTraitSln opts (vref:ValRef) fvs = 
     if vref.IsLocalRef then
@@ -1886,7 +1887,7 @@ and accFreeTyparRef opts (tp:Typar) acc =
     if HashSetUtils.contains tp acc.FreeTypars then acc 
     else 
         accFreeInTyparConstraints opts tp.Constraints
-          { acc with FreeTypars = HashSetUtils.add tp acc.FreeTypars}
+          { acc with FreeTypars = HashSetUtils.add tp (new HashSet<_>(acc.FreeTypars, typarEquality))}
 
 and accFreeInType opts ty acc  = 
     match stripTyparEqns ty with 
@@ -3911,11 +3912,11 @@ let emptyFreeVars() =
     FreeUnionCases = emptyFreeUnionCases}
 
 let unionFreeVars fvs1 fvs2 = 
-  { FreeLocals                    = HashSetUtils.union fvs1.FreeLocals fvs2.FreeLocals;
+  { FreeLocals                    = HashSetUtils.union (new HashSet<_>(fvs1.FreeLocals, valEquality)) fvs2.FreeLocals;
     FreeTyvars                    = unionFreeTyvars fvs1.FreeTyvars fvs2.FreeTyvars;    
     UsesMethodLocalConstructs     = fvs1.UsesMethodLocalConstructs || fvs2.UsesMethodLocalConstructs;
     UsesUnboundRethrow            = fvs1.UsesUnboundRethrow || fvs2.UsesUnboundRethrow;
-    FreeLocalTyconReprs           = HashSetUtils.union fvs1.FreeLocalTyconReprs fvs2.FreeLocalTyconReprs; 
+    FreeLocalTyconReprs           = HashSetUtils.union (new HashSet<_>(fvs1.FreeLocalTyconReprs, tyconEquality)) fvs2.FreeLocalTyconReprs; 
     FreeRecdFields                = unionFreeRecdFields fvs1.FreeRecdFields fvs2.FreeRecdFields; 
     FreeUnionCases                = unionFreeUnionCases fvs1.FreeUnionCases fvs2.FreeUnionCases; }
 
@@ -4007,7 +4008,7 @@ let boundLocalVal opts v fvs =
     if not opts.includeLocals then fvs else
     let fvs = accFreevarsInVal opts v fvs
     if not (HashSetUtils.contains v fvs.FreeLocals) then fvs
-    else {fvs with FreeLocals= HashSetUtils.remove v fvs.FreeLocals} 
+    else {fvs with FreeLocals= HashSetUtils.remove v (new HashSet<_>(fvs.FreeLocals, valEquality))} 
 
 let boundProtect fvs =
     if fvs.UsesMethodLocalConstructs then {fvs with UsesMethodLocalConstructs = false} else fvs
@@ -4073,12 +4074,12 @@ and accFreeLocalVal opts v fvs =
     if HashSetUtils.contains v fvs.FreeLocals then fvs 
     else 
         let fvs = accFreevarsInVal opts v fvs
-        {fvs with FreeLocals=HashSetUtils.add v fvs.FreeLocals}
+        {fvs with FreeLocals=HashSetUtils.add v (new HashSet<_>(fvs.FreeLocals, valEquality)) }
   
 and accLocalTyconRepr opts b fvs = 
     if not opts.includeLocalTyconReprs then fvs else
     if HashSetUtils.contains b fvs.FreeLocalTyconReprs  then fvs
-    else { fvs with FreeLocalTyconReprs = HashSetUtils.add b fvs.FreeLocalTyconReprs } 
+    else { fvs with FreeLocalTyconReprs = HashSetUtils.add b (new HashSet<_>(fvs.FreeLocalTyconReprs, tyconEquality)) } 
 
 and accUsedRecdOrUnionTyconRepr opts (tc:Tycon) fvs = 
     if match tc.TypeReprInfo with  TFSharpObjectRepr _ | TRecdRepr _ | TUnionRepr _ -> true | _ -> false
@@ -7370,7 +7371,7 @@ let doesActivePatternHaveFreeTypars g (v:ValRef) =
     let argtps,restps= (freeInTypes CollectTypars argtys).FreeTypars,(freeInType CollectTypars resty).FreeTypars        
     // Error if an active pattern is generic in type variables that only occur in the result Choice<_,...>.
     // Note: The test restricts to v.Typars since typars from the closure are considered fixed.
-    not (HashSetUtils.isEmpty (HashSetUtils.inter vtps (HashSetUtils.diff restps argtps)))
+    not (HashSetUtils.isEmpty (HashSetUtils.inter (new HashSet<_>(vtps, typarEquality)) (HashSetUtils.diff (new HashSet<_>(restps, typarEquality)) argtps)))
 
 //---------------------------------------------------------------------------
 // RewriteExpr: rewrite bottom up with interceptors 

@@ -526,7 +526,7 @@ module Pass2_DetermineReqdItems =
              // occurrences contribute to env 
              // tlrBs are not reqdVals0 for themselves 
              let reqdVals0 = frees.FreeLocals
-             let reqdVals0 = HashSetUtils.filter (fun gv -> not (fclass.Contains gv)) reqdVals0
+             let reqdVals0 = HashSetUtils.filter (fun gv -> not (fclass.Contains gv)) (new HashSet<_>(reqdVals0, valEquality))
              // collect into env over bodies 
              let z          = PushFrame fclass (reqdTypars0,reqdVals0,m) z
              let z          = (z,tlrBs) ||> List.fold (foldOn (fun b -> b.Expr) exprF) 

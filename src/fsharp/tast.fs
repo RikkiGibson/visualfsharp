@@ -4357,7 +4357,7 @@ and FreeTyvars =
     { /// The summary of locally defined type definitions used in the expression. These may be made private by a signature 
       /// and we have to check various conditions associated with that. 
       FreeTycons: FreeTycons
-
+      
       /// The summary of values used as trait solutions
       FreeTraitSolutions: FreeLocals
       

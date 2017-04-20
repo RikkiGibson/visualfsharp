@@ -2130,7 +2130,7 @@ module GeneralizationHelpers =
                 if item.WillNeverHaveFreeTypars then item.CachedFreeLocalTycons else 
                 let ftyvs = item.GetFreeTyvars()
                 ftyvs.FreeTycons
-            if HashSetUtils.isEmpty ftycs then acc else HashSetUtils.union ftycs acc
+            if HashSetUtils.isEmpty ftycs then acc else HashSetUtils.union (new HashSet<_>(ftycs)) acc
 
         List.fold acc_in_free_item (new HashSet<Tycon>(tyconEquality)) env.eUngeneralizableItems 
 
@@ -2140,7 +2140,7 @@ module GeneralizationHelpers =
                 if item.WillNeverHaveFreeTypars then item.CachedFreeTraitSolutions else 
                 let ftyvs = item.GetFreeTyvars()
                 ftyvs.FreeTraitSolutions
-            if HashSetUtils.isEmpty ftycs then acc else HashSetUtils.union ftycs acc
+            if HashSetUtils.isEmpty ftycs then acc else HashSetUtils.union (new HashSet<_>(ftycs)) acc
 
         List.fold acc_in_free_item  (new HashSet<Val>(valEquality))  env.eUngeneralizableItems 
 
@@ -2219,9 +2219,10 @@ module GeneralizationHelpers =
         else 
             let freeInEnv = 
                 HashSetUtils.union 
-                    (accFreeInTypars CollectAllNoCaching ungeneralizableTypars1 
-                        (accFreeInTypars CollectAllNoCaching ungeneralizableTypars2 
-                            (accFreeInTypars CollectAllNoCaching ungeneralizableTypars3 (emptyFreeTyvars())))).FreeTypars 
+                    (new HashSet<_>(
+                        (accFreeInTypars CollectAllNoCaching ungeneralizableTypars1 
+                            (accFreeInTypars CollectAllNoCaching ungeneralizableTypars2 
+                                (accFreeInTypars CollectAllNoCaching ungeneralizableTypars3 (emptyFreeTyvars())))).FreeTypars, typarEquality)) 
                     freeInEnv
             TrimUngeneralizableTypars genConstrainedTyparFlag inlineFlag generalizedTypars freeInEnv
 
@@ -10685,7 +10686,7 @@ and ApplyTypesFromArgumentPatterns (cenv, env, optArgsOK, ty, m, tpenv, Normaliz
 
 /// Do the type annotations give the full and complete generic type? If so, enable generic recursion 
 and ComputeIsComplete enclosingDeclaredTypars declaredTypars ty = 
-    HashSetUtils.isEmpty (List.fold (fun acc v -> HashSetUtils.remove v acc) 
+    HashSetUtils.isEmpty (List.fold (fun acc v -> HashSetUtils.remove v (new HashSet<_>(acc, typarEquality))) 
                                   (freeInType CollectAllNoCaching ty).FreeTypars 
                                   (enclosingDeclaredTypars@declaredTypars)) 
 
@@ -11292,14 +11293,14 @@ and TcIncrementalLetRecGeneralization cenv scopem
 
                     //printfn "(failed generalization test 1 for binding for %s)" pgrbind.RecBindingInfo.Val.DisplayName
                     // Any declared type parameters in an type are always generalizable
-                    let freeInBinding = HashSetUtils.diff freeInBinding (NormalizeDeclaredTyparsForEquiRecursiveInference cenv.g pgrbind.ExtraGeneralizableTypars)
+                    let freeInBinding = HashSetUtils.diff (new HashSet<_>(freeInBinding, typarEquality)) (NormalizeDeclaredTyparsForEquiRecursiveInference cenv.g pgrbind.ExtraGeneralizableTypars)
 
                     if freeInBinding.Count = 0 then true else
 
                     //printfn "(failed generalization test 2 for binding for %s)" pgrbind.RecBindingInfo.Val.DisplayName
 
                     // Any declared method parameters can always be generalized
-                    let freeInBinding = HashSetUtils.diff freeInBinding (NormalizeDeclaredTyparsForEquiRecursiveInference cenv.g pgrbind.RecBindingInfo.DeclaredTypars)
+                    let freeInBinding = HashSetUtils.diff (new HashSet<_>(freeInBinding, typarEquality)) (NormalizeDeclaredTyparsForEquiRecursiveInference cenv.g pgrbind.RecBindingInfo.DeclaredTypars)
 
                     if freeInBinding.Count = 0 then true else
 
@@ -11307,14 +11308,14 @@ and TcIncrementalLetRecGeneralization cenv scopem
 
                     // Type variables free in the non-recursive environment do not stop us generalizing the binding,
                     // since they can't be generalized anyway
-                    let freeInBinding = HashSetUtils.diff freeInBinding freeInEnv
+                    let freeInBinding = HashSetUtils.diff (new HashSet<_>(freeInBinding, typarEquality)) freeInEnv
 
                     if freeInBinding.Count = 0 then true else
 
                     //printfn "(failed generalization test 4 for binding for %s)" pgrbind.RecBindingInfo.Val.DisplayName
 
                     // Type variables free in unchecked bindings do stop us generalizing
-                    let freeInBinding = HashSetUtils.inter freeInBinding (freeInFrozenAndLaterBindings.Force().FreeTypars)
+                    let freeInBinding = HashSetUtils.inter (new HashSet<_>(freeInBinding, typarEquality)) (freeInFrozenAndLaterBindings.Force().FreeTypars)
 
                     if HashSetUtils.isEmpty freeInBinding then true else
 
@@ -11355,9 +11356,9 @@ and TcIncrementalLetRecGeneralization cenv scopem
                     freeInEnv 
                 else 
                     let freeInBinding = (freeInType CollectAllNoCaching pgrbind.RecBindingInfo.Val.TauType).FreeTypars
-                    let freeInBinding = HashSetUtils.diff freeInBinding (NormalizeDeclaredTyparsForEquiRecursiveInference cenv.g pgrbind.ExtraGeneralizableTypars)
-                    let freeInBinding = HashSetUtils.diff freeInBinding (NormalizeDeclaredTyparsForEquiRecursiveInference cenv.g pgrbind.RecBindingInfo.DeclaredTypars)
-                    HashSetUtils.union freeInBinding freeInEnv)
+                    let freeInBinding = HashSetUtils.diff (new HashSet<_>(freeInBinding, typarEquality)) (NormalizeDeclaredTyparsForEquiRecursiveInference cenv.g pgrbind.ExtraGeneralizableTypars)
+                    let freeInBinding = HashSetUtils.diff (new HashSet<_>(freeInBinding, typarEquality)) (NormalizeDeclaredTyparsForEquiRecursiveInference cenv.g pgrbind.RecBindingInfo.DeclaredTypars)
+                    HashSetUtils.union (new HashSet<_>(freeInBinding)) freeInEnv)
 
         // Process the bindings marked for transition from PreGeneralization --> PostGeneralization
         let newGeneralizedRecBinds,tpenv = 

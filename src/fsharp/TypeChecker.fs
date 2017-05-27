@@ -2059,7 +2059,7 @@ type GeneralizeConstrainedTyparOptions =
 module GeneralizationHelpers = 
     let ComputeUngeneralizableTypars env = 
         
-        let acc = Collections.Generic.List()
+        let acc = ResizeArray()
         for item in env.eUngeneralizableItems do
             if not item.WillNeverHaveFreeTypars then
                 let ftps = item.GetFreeTyvars().FreeTypars
